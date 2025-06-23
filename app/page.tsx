@@ -1,27 +1,26 @@
-"use client";
+'use client';
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { CheckCircle, AlertCircle, Info, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
-import { useState } from "react";
-import confetti from "canvas-confetti";
+import { useState, useEffect } from "react";
+import dynamic from 'next/dynamic';
+
+// Dynamic import for canvas-confetti to avoid SSR issues
+const confetti = dynamic(() => import('canvas-confetti').then((mod) => mod.default));
 
 const quiz = [
-  // Password Hygiene
   {
     question: "Do you use unique passwords for each account?",
     answers: [
-      { 
-        text: "Always", 
-        score: 10, 
-        tip: "Unique passwords reduce the risk of all your accounts being compromised at once." 
-      },
-      // ... (keep all your existing quiz questions)
+      { text: "Always", score: 10, tip: "Unique passwords reduce the risk of all your accounts being compromised at once." },
+      { text: "Sometimes", score: 5, tip: "Using a password manager can help you keep passwords unique." },
+      { text: "Never", score: 0, tip: "Reusing passwords means a single breach can compromise everything." }
     ]
   },
-  // ... (rest of your quiz questions)
+  // ... (keep all your existing quiz questions)
 ];
 
 function getScoreLevel(score: number) {
@@ -48,17 +47,23 @@ export default function Home() {
   const totalScore = answers.reduce((a, b) => a + b, 0);
   const progress = (step / quiz.length) * 100;
 
+  useEffect(() => {
+    if (step >= quiz.length && totalScore >= quiz.length * 9) {
+      const runConfetti = async () => {
+        const confetti = await import('canvas-confetti').then(mod => mod.default);
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
+      };
+      runConfetti();
+    }
+  }, [step, totalScore]);
+
   if (step >= quiz.length) {
     const level = getScoreLevel(totalScore);
     
-    if (level.label === "Privacy Pro") {
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 }
-      });
-    }
-
     return (
       <main className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 px-4 py-8">
         <motion.div
@@ -104,11 +109,6 @@ export default function Home() {
             Retake Quiz
           </Button>
         </motion.div>
-        
-        <footer className="text-xs text-gray-400 mt-8 pb-4 text-center">
-          <p>Built with ❤️ by HumanXAI</p>
-          <p className="mt-1">Helping you stay safe since 2023</p>
-        </footer>
       </main>
     );
   }
@@ -165,15 +165,7 @@ export default function Home() {
             </Card>
           ))}
         </div>
-
-        <p className="mt-6 text-sm text-blue-500 dark:text-blue-400 text-center">
-          Your privacy is in your hands. Simple steps can make a big difference!
-        </p>
       </motion.div>
-      
-      <footer className="text-xs text-gray-400 mt-8 pb-4 text-center">
-        <p>Built with ❤️ by HumanXAI</p>
-      </footer>
     </main>
   );
 }

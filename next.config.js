@@ -2,11 +2,9 @@
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
-  // Optional: Add images domain if you're using external images
   images: {
-    domains: ['images.unsplash.com'], // Add your image domains here
+    domains: [],
   },
-  // Optional: Enable experimental features if needed
   experimental: {
     appDir: true,
     serverActions: true,
