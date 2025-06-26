@@ -1031,7 +1031,7 @@ function ResultsView({
             </div>
             
             <a
-              href="coff.ee/humanxai"
+              href="https://buymeacoffee.com/humanxai"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-semibold rounded-lg transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
