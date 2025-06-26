@@ -993,7 +993,7 @@ function ResultsView({
       </div>
       
       {/* Buttons */}
-      <div className="flex justify-center space-x-4">
+      <div className="flex justify-center space-x-4 mb-6">
         <button 
           onClick={onRestart}
           className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
@@ -1009,6 +1009,44 @@ function ResultsView({
           <Download className="w-4 h-4" />
           Export Results
         </button>
+      </div>
+
+      {/* Support Section */}
+      <div className="mb-4">
+        <div className="bg-gradient-to-r from-amber-50 to-orange-50 p-6 rounded-xl border border-amber-200">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="text-2xl">☕</div>
+            <h3 className="text-lg font-semibold text-gray-900">Support PrivScore Development</h3>
+          </div>
+          
+          <p className="text-gray-700 mb-4 leading-relaxed">
+            Building free, privacy-first security tools takes time and resources. If PrivScore helped you improve your security posture, 
+            consider supporting our mission to make cybersecurity accessible to everyone.
+          </p>
+
+           <div className="flex items-center text-sm text-gray-600">
+              <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
+              Keeps tools free for everyone
+            </div>
+          
+          <div className="flex flex-col sm:flex-row gap-3 items-start">
+            <a
+              href="https://buymeacoffee.com/humanxai"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-semibold rounded-lg transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
+            >
+              ☕ Buy me a coffee
+              <ExternalLink className="w-4 h-4 ml-2" />
+            </a>
+            
+           
+          </div>
+          
+          <p className="text-xs text-gray-500 mt-3">
+            Your support enables us to continue creating innovative security solutions that protect professionals worldwide.
+          </p>
+        </div>
       </div>
     </div>
   );
