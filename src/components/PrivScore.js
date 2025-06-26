@@ -1023,13 +1023,13 @@ function ResultsView({
             Building free, privacy-first security tools takes time and resources. If PrivScore helped you improve your security posture, 
             consider supporting our mission to make cybersecurity accessible to everyone.
           </p>
-
-           <div className="flex items-center text-sm text-gray-600">
+          
+          <div className="flex flex-col items-center gap-3">
+            <div className="flex items-center text-sm text-gray-600">
               <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
               Keeps tools free for everyone
             </div>
-          
-          <div className="flex flex-col sm:flex-row gap-3 items-start">
+            
             <a
               href="https://buymeacoffee.com/humanxai"
               target="_blank"
@@ -1039,8 +1039,6 @@ function ResultsView({
               ☕ Buy me a coffee
               <ExternalLink className="w-4 h-4 ml-2" />
             </a>
-            
-           
           </div>
           
           <p className="text-xs text-gray-500 mt-3">
