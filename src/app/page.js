@@ -1,4 +1,4 @@
-import PrivScore from '@/components/PrivScore'
+import PrivScore from '../components/PrivScore'
 
 export default function Home() {
   return <PrivScore />
