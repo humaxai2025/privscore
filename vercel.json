@@ -1,18 +1,6 @@
 {
   "version": 2,
   "name": "privscore",
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/next"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/"
-    }
-  ],
   "headers": [
     {
       "source": "/(.*)",
