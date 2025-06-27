@@ -954,7 +954,7 @@ function ResultsView({
         <h3 className="font-medium mb-3 text-gray-900">🔗 Security Resources</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
           <a 
-            href="https://www.cisa.gov/secure-our-world/turn-on-multifactor-authentication" 
+            href="https://www.cisa.gov/resources-tools/resources/multi-factor-authentication-mfa" 
             target="_blank" 
             rel="noopener noreferrer"
             className="flex items-center gap-2 text-blue-600 hover:underline p-2 rounded hover:bg-blue-50"
