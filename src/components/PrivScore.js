@@ -1041,7 +1041,7 @@ function ResultsView({
             </a>
           </div>
           
-          <p className="text-xs text-gray-500 mt-3">
+          <p className="text-xs text-gray-500 mt-3 items-center justify-center">
             Your support enables us to continue creating innovative security solutions that protect professionals worldwide.
           </p>
         </div>
