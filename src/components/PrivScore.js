@@ -389,9 +389,11 @@ ${Object.entries(categoryScores).map(([category, scores]) =>
   `${category}: ${scores.total}/${scores.possible} (${scores.percentage}%)`
 ).join('\n')}
 
-=== TOP RECOMMENDATIONS ===
+=== YOUR PERSONAL ACTION PLAN ===
 ${recommendations.map((rec, index) => 
-  `${index + 1}. ${rec.action}\n   ${rec.description}`
+  `${index + 1}. [${rec.priority}] ${rec.action}
+   ${rec.description}
+   ${rec.steps ? 'Action Steps:\n   ' + rec.steps.map((step, i) => `${i+1}. ${step}`).join('\n   ') : ''}`
 ).join('\n\n')}
 
 === SECURITY RESOURCES ===
@@ -519,6 +521,214 @@ export default function PrivScoreComplete() {
   };
   
   const getRecommendations = () => {
+    const specificRecommendations = [];
+    
+    // Analyze individual answers for specific recommendations
+    answers.forEach((score, index) => {
+      if (index < securityQuestions.length) {
+        const question = securityQuestions[index];
+        
+        // Only add recommendations for questions where user scored poorly
+        if (score < 7) { // If they didn't get a good score on this question
+          
+          // Two-factor authentication (Question 1)
+          if (index === 0) {
+            if (score === 0) {
+              specificRecommendations.push({
+                priority: "CRITICAL",
+                action: "Set up two-factor authentication immediately",
+                description: "You have no 2FA protection. This single step prevents 99% of account takeovers.",
+                steps: [
+                  "Go to accounts.google.com → Security → 2-Step Verification",
+                  "Add your phone number for verification codes",
+                  "Repeat for banking, social media, and work accounts",
+                  "Consider using Google Authenticator app for extra security"
+                ]
+              });
+            } else if (score === 5) {
+              specificRecommendations.push({
+                priority: "HIGH",
+                action: "Complete two-factor authentication setup",
+                description: "You've started but need to add 2FA to ALL important accounts.",
+                steps: [
+                  "List all your important accounts (email, banking, social media, work)",
+                  "Check which ones already have 2FA enabled", 
+                  "Add 2FA to remaining accounts, starting with banking",
+                  "Use authenticator apps instead of SMS when possible"
+                ]
+              });
+            }
+          }
+          
+          // Password management (Question 2)
+          else if (index === 1) {
+            if (score === 0) {
+              specificRecommendations.push({
+                priority: "CRITICAL",
+                action: "Stop reusing passwords - get a password manager",
+                description: "Using the same password everywhere means one breach exposes everything.",
+                steps: [
+                  "Download Bitwarden (free) or 1Password",
+                  "Import existing passwords from your browser",
+                  "Generate new unique passwords for email and banking first",
+                  "Never reuse passwords again"
+                ]
+              });
+            } else if (score === 3) {
+              specificRecommendations.push({
+                priority: "HIGH", 
+                action: "Replace password patterns with unique passwords",
+                description: "Password patterns are easily cracked once hackers figure out your system.",
+                steps: [
+                  "Install a password manager (Bitwarden is free)",
+                  "Generate completely random passwords for each account",
+                  "Start with your most important accounts first",
+                  "Update 2-3 passwords per day until all are unique"
+                ]
+              });
+            }
+          }
+          
+          // Account cleanup (Question 3)
+          else if (index === 2) {
+            specificRecommendations.push({
+              priority: "MEDIUM",
+              action: "Clean up old account permissions",
+              description: "Old connected apps and services are security risks.",
+              steps: [
+                "Google: myaccount.google.com → Data & privacy → Third-party apps",
+                "Facebook: Settings → Apps and websites → Remove unused apps",
+                "Twitter: Settings → Apps and sessions → Revoke old access", 
+                "Set quarterly reminder to repeat this cleanup"
+              ]
+            });
+          }
+          
+          // Device updates (Question 7)
+          else if (index === 6) {
+            specificRecommendations.push({
+              priority: "HIGH",
+              action: "Enable automatic updates on all devices",
+              description: "Outdated devices have known security holes that hackers exploit.",
+              steps: [
+                "iPhone: Settings → General → Software Update → Automatic Updates ON",
+                "Android: Settings → System → System Update → Auto-download ON",
+                "Windows: Settings → Update & Security → Advanced Options",
+                "Mac: System Preferences → Software Update → Automatically keep my Mac up to date",
+                "Also enable auto-updates for all apps"
+              ]
+            });
+          }
+          
+          // Public Wi-Fi (Question 8) 
+          else if (index === 7) {
+            specificRecommendations.push({
+              priority: "MEDIUM",
+              action: "Protect yourself on public Wi-Fi",
+              description: "Public Wi-Fi is like having conversations in a crowded room - anyone can listen.",
+              steps: [
+                "Download a VPN: NordVPN, ExpressVPN, or Surfshark",
+                "Install on phone, laptop, and tablet",
+                "Always connect VPN BEFORE joining public Wi-Fi",
+                "Alternative: Use your phone's mobile hotspot instead",
+                "Never do banking or shopping without VPN protection"
+              ]
+            });
+          }
+          
+          // Phishing awareness (Question 10)
+          else if (index === 9) {
+            specificRecommendations.push({
+              priority: "HIGH",
+              action: "Learn to spot phishing attempts",
+              description: "Phishing is how most accounts get compromised. Train yourself to recognize it.",
+              steps: [
+                "Always verify sender email addresses carefully",
+                "Hover over links before clicking (look for suspicious URLs)",
+                "Watch for urgent language: 'Act now!', 'Account suspended!'",
+                "When in doubt, go to the company's website directly",
+                "Take the Google phishing quiz: phishingquiz.withgoogle.com"
+              ]
+            });
+          }
+          
+          // Data breach checking (Question 17)
+          else if (index === 16) {
+            specificRecommendations.push({
+              priority: "HIGH",
+              action: "Check if your data has been breached",
+              description: "Your accounts might already be compromised and you don't know it.",
+              steps: [
+                "Go to haveibeenpwned.com right now",
+                "Enter ALL your email addresses",
+                "For any breached accounts: change passwords immediately",
+                "Enable 2FA on any compromised accounts",
+                "Sign up for breach notifications for the future"
+              ]
+            });
+          }
+          
+          // Verification code sharing (Question 18)
+          else if (index === 17 && score === 0) {
+            specificRecommendations.push({
+              priority: "CRITICAL",
+              action: "NEVER share verification codes with anyone",
+              description: "This is the #1 way accounts get taken over. No legitimate company ever asks for these codes.",
+              steps: [
+                "Remember: Verification codes are like your house keys",
+                "If someone calls asking for a code, hang up immediately",
+                "Real companies never ask for codes via phone or email",
+                "When in doubt, end the call and contact the company directly",
+                "Educate family members - scammers target seniors especially"
+              ]
+            });
+          }
+        }
+      }
+    });
+    
+    // If user scored well on everything, give them advanced recommendations
+    if (specificRecommendations.length === 0) {
+      const overallPercentage = Math.round((totalScore / maxPossibleScore) * 100);
+      if (overallPercentage >= 80) {
+        specificRecommendations.push({
+          priority: "EXCELLENT",
+          action: "🎉 Great job! Consider these advanced security steps",
+          description: "You have strong security habits. Here are some advanced steps to stay ahead.",
+          steps: [
+            "Set up a hardware security key (YubiKey) for your most important accounts",
+            "Review and tighten privacy settings on all social media accounts",
+            "Consider using separate browsers for different activities",
+            "Set up encrypted messaging (Signal) for sensitive conversations"
+          ]
+        });
+        specificRecommendations.push({
+          priority: "MAINTENANCE",
+          action: "Maintain your excellent security posture",
+          description: "Keep up the good work with regular security maintenance.",
+          steps: [
+            "Schedule monthly security checkups",
+            "Stay updated on latest security threats",
+            "Help friends and family improve their security",
+            "Consider taking a cybersecurity course to learn more"
+          ]
+        });
+      }
+    }
+    
+    // Sort by priority and limit to top 3
+    const priorityOrder = { "CRITICAL": 0, "HIGH": 1, "EXCELLENT": 2, "MEDIUM": 3, "MAINTENANCE": 4 };
+    specificRecommendations.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
+    
+    // If still no specific recommendations, fall back to category-based
+    if (specificRecommendations.length === 0) {
+      return getBasicCategoryRecommendations().slice(0, 3);
+    }
+    
+    return specificRecommendations.slice(0, 3);
+  };
+  
+  const getBasicCategoryRecommendations = () => {
     const weakCategories = getWeakestCategories();
     const recommendations = [];
     
@@ -528,71 +738,39 @@ export default function PrivScoreComplete() {
       switch(category) {
         case "Account Security":
           recommendations.push({
-            category: "Account Security",
-            action: "Enable two-factor authentication",
-            description: "Set this up on your email and banking accounts first"
+            priority: "HIGH",
+            action: "Strengthen account security",
+            description: "Enable two-factor authentication and use unique passwords for all accounts",
+            steps: ["Enable 2FA on email and banking", "Install a password manager", "Use unique passwords everywhere"]
           });
           break;
         case "Device Security":
           recommendations.push({
-            category: "Device Security",
-            action: "Turn on automatic updates",
-            description: "Keep your devices protected against known security flaws"
+            priority: "HIGH", 
+            action: "Secure your devices",
+            description: "Keep devices updated and protected against malware",
+            steps: ["Enable automatic updates", "Install antivirus software", "Use VPN on public Wi-Fi"]
           });
           break;
         case "Data Protection":
           recommendations.push({
-            category: "Data Protection",
-            action: "Create secure backups",
-            description: "Keep copies of important files in at least two different places"
-          });
-          break;
-        case "Digital Awareness":
-          recommendations.push({
-            category: "Digital Awareness",
-            action: "Learn to identify phishing attempts",
-            description: "Check sender emails carefully and be cautious of unexpected messages"
-          });
-          break;
-        case "Privacy Protection":
-          recommendations.push({
-            category: "Privacy Protection",
-            action: "Review app permissions",
-            description: "Check which apps can access your location, contacts and camera"
-          });
-          break;
-        case "Mobile & Smart Home":
-          recommendations.push({
-            category: "Mobile & Smart Home",
-            action: "Use strong passcodes on devices",
-            description: "Combine biometrics with a strong passcode for maximum protection"
-          });
-          break;
-        case "Personal Data Management":
-          recommendations.push({
-            category: "Personal Data Management",
-            action: "Check for account breaches",
-            description: "Use haveibeenpwned.com to see if your accounts have been compromised"
+            priority: "MEDIUM",
+            action: "Protect your data",
+            description: "Create backups and secure sensitive information",
+            steps: ["Set up cloud backup", "Create offline backup copy", "Encrypt sensitive files"]
           });
           break;
         default:
           recommendations.push({
-            category: "General Security",
-            action: "Create a security plan",
-            description: "Develop a simple checklist for maintaining your digital security"
+            priority: "MEDIUM",
+            action: "Improve digital security habits",
+            description: "Focus on basic security practices and awareness",
+            steps: ["Review privacy settings", "Learn to spot phishing", "Monitor account activity"]
           });
       }
     });
     
-    if (recommendations.length < 3) {
-      recommendations.push({
-        category: "General Security",
-        action: "Stay informed about threats",
-        description: "Follow trusted security sources to keep updated on emerging risks"
-      });
-    }
-    
-    return recommendations.slice(0, 3);
+    return recommendations;
   };
   
   const progressPercentage = (currentQuestion / securityQuestions.length) * 100;
@@ -867,15 +1045,59 @@ function ResultsView({
 
       {/* Top Actions */}
       <div className="mb-6">
-        <h3 className="font-medium mb-3 text-gray-900">🎯 Top Priority Actions</h3>
+        <h3 className="font-medium mb-3 text-gray-900">🎯 Your Personal Action Plan</h3>
         
-        <div className="space-y-3">
+        <div className="space-y-4">
           {recommendations.map((rec, index) => (
-            <div key={index} className="p-4 border-l-4 border-blue-500 bg-blue-50 rounded-r-md">
-              <div className="font-medium text-gray-800">{rec.action}</div>
-              <p className="text-sm text-gray-600 mt-1">{rec.description}</p>
+            <div key={index} className={`p-4 rounded-lg border-l-4 ${
+              rec.priority === 'CRITICAL' ? 'border-red-500 bg-red-50' :
+              rec.priority === 'HIGH' ? 'border-orange-500 bg-orange-50' :
+              rec.priority === 'EXCELLENT' ? 'border-green-500 bg-green-50' :
+              rec.priority === 'MAINTENANCE' ? 'border-purple-500 bg-purple-50' :
+              'border-blue-500 bg-blue-50'
+            }`}>
+              <div className="flex items-start justify-between mb-2">
+                <div className="font-semibold text-gray-800">{rec.action}</div>
+                <span className={`px-2 py-1 text-xs font-bold rounded ${
+                  rec.priority === 'CRITICAL' ? 'bg-red-200 text-red-800' :
+                  rec.priority === 'HIGH' ? 'bg-orange-200 text-orange-800' :
+                  rec.priority === 'EXCELLENT' ? 'bg-green-200 text-green-800' :
+                  rec.priority === 'MAINTENANCE' ? 'bg-purple-200 text-purple-800' :
+                  'bg-blue-200 text-blue-800'
+                }`}>
+                  {rec.priority}
+                </span>
+              </div>
+              
+              <p className="text-sm text-gray-600 mb-3">{rec.description}</p>
+              
+              {rec.steps && (
+                <div>
+                  <div className="text-xs font-medium text-gray-700 mb-2">Step-by-step instructions:</div>
+                  <ul className="text-xs text-gray-600 space-y-1">
+                    {rec.steps.map((step, stepIndex) => (
+                      <li key={stepIndex} className="flex items-start">
+                        <span className="text-blue-500 mr-2 font-bold">{stepIndex + 1}.</span>
+                        <span>{step}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           ))}
+        </div>
+        
+        <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+          <div className="text-sm text-gray-700">
+            {recommendations.some(r => r.priority === 'EXCELLENT') ? (
+              <>🌟 <strong>Excellent work!</strong> You have strong security habits. Keep up the great work and consider helping others improve their security too.</>
+            ) : recommendations.some(r => r.priority === 'CRITICAL') ? (
+              <>🚨 <strong>Important:</strong> Start with CRITICAL items immediately - they represent serious security risks that need immediate attention.</>
+            ) : (
+              <>💡 <strong>Pro tip:</strong> Start with highest priority items first. Each completed action significantly improves your security posture.</>
+            )}
+          </div>
         </div>
       </div>
       
