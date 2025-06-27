@@ -826,7 +826,12 @@ function ResultsView({
             Nothing is stored on our servers</span> - your privacy is guaranteed!
           </p>
           
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex flex-col items-center gap-3">
+            <div className="flex items-center text-sm text-gray-600">
+              <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
+              100% Client-Side • Nothing Stored
+            </div>
+            
             <a
               href="https://passgaurd.humanxaihome.com/"
               target="_blank"
@@ -837,11 +842,6 @@ function ResultsView({
               Check & Generate Passwords
               <ExternalLink className="w-4 h-4 ml-2" />
             </a>
-            
-            <div className="flex items-center text-sm text-gray-600">
-              <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
-              100% Client-Side • Nothing Stored
-            </div>
           </div>
           
           <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
@@ -954,7 +954,7 @@ function ResultsView({
         <h3 className="font-medium mb-3 text-gray-900">🔗 Security Resources</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
           <a 
-            href="https://www.cisa.gov/resources-tools/resources/multi-factor-authentication-mfa" 
+            href="http://cisa.gov/resources-tools/resources/multi-factor-authentication-mfa" 
             target="_blank" 
             rel="noopener noreferrer"
             className="flex items-center gap-2 text-blue-600 hover:underline p-2 rounded hover:bg-blue-50"
@@ -1041,7 +1041,7 @@ function ResultsView({
             </a>
           </div>
           
-          <p className="text-xs text-gray-500 mt-3 items-center justify-center">
+          <p className="text-xs text-gray-500 mt-3 text-center">
             Your support enables us to continue creating innovative security solutions that protect professionals worldwide.
           </p>
         </div>
