@@ -6,7 +6,12 @@ import { Shield, Lock, Award, CheckCircle, AlertCircle, Info, RefreshCw, Trendin
 // Enhanced AI Service with proper API integration
 class AIService {
   constructor() {
-    // Safe environment variable access - only from build-time env vars
+    // Debug environment variable access
+    console.log('🔍 Environment Debug Info:');
+    console.log('- typeof window:', typeof window);
+    console.log('- typeof process:', typeof process);
+    
+    // Try all possible ways to get the API key
     this.apiKey = this.getApiKey();
     this.baseUrl = 'https://api-inference.huggingface.co/models/';
     this.enabled = true;
@@ -16,34 +21,141 @@ class AIService {
       questionAnswering: 'deepset/roberta-base-squad2'
     };
     
-    // Debug logging (safe for browser)
-    console.log('🤖 AI Service initialized:', {
-      hasApiKey: !!this.apiKey,
-      enabled: this.enabled,
-      keyPreview: this.apiKey ? this.apiKey.substring(0, 8) + '...' : 'Using fallback mode'
-    });
+    // Comprehensive debug logging
+    console.log('🤖 AI Service Debug Report:');
+    console.log('- API Key found:', !!this.apiKey);
+    console.log('- API Key length:', this.apiKey?.length || 0);
+    console.log('- API Key preview:', this.apiKey ? `${this.apiKey.substring(0, 8)}...` : 'NONE');
+    console.log('- Is Enabled:', this.isEnabled());
+    console.log('- Environment check complete');
   }
 
   getApiKey() {
-    // Only try Next.js injected env vars (from build time)
-    if (typeof window !== 'undefined' && window.__NEXT_DATA__?.env?.NEXT_PUBLIC_HUGGING_FACE_API_KEY) {
-      return window.__NEXT_DATA__.env.NEXT_PUBLIC_HUGGING_FACE_API_KEY;
-    }
-
-    // Try process.env safely (for SSR/build time)
+    console.log('🔑 Checking for API key in multiple locations...');
+    
+    // Method 1: Direct environment access (most reliable for Next.js)
     try {
-      if (typeof process !== 'undefined' && process.env && process.env.NEXT_PUBLIC_HUGGING_FACE_API_KEY) {
-        return process.env.NEXT_PUBLIC_HUGGING_FACE_API_KEY;
+      // Check if we're in browser and have access to injected env vars
+      if (typeof window !== 'undefined') {
+        console.log('🌐 Browser environment detected');
+        
+        // Check Next.js injected environment variables
+        if (window.__NEXT_DATA__?.env) {
+          console.log('📦 Next.js env object found:', Object.keys(window.__NEXT_DATA__.env));
+          const key = window.__NEXT_DATA__.env.NEXT_PUBLIC_HUGGING_FACE_API_KEY;
+          if (key) {
+            console.log('✅ Found API key in Next.js env');
+            return key;
+          }
+        }
+        
+        // Check for manually set global variable (for testing)
+        if (window.NEXT_PUBLIC_HUGGING_FACE_API_KEY) {
+          console.log('✅ Found API key in window global');
+          return window.NEXT_PUBLIC_HUGGING_FACE_API_KEY;
+        }
+        
+        console.log('❌ No API key found in browser environment');
       }
     } catch (error) {
-      // Ignore process.env errors in browser
+      console.warn('⚠️ Browser environment check failed:', error);
     }
 
+    // Method 2: Server-side process.env (for SSR)
+    try {
+      if (typeof process !== 'undefined' && process.env) {
+        console.log('🖥️ Server environment detected');
+        const key = process.env.NEXT_PUBLIC_HUGGING_FACE_API_KEY;
+        if (key) {
+          console.log('✅ Found API key in process.env');
+          return key;
+        }
+        console.log('❌ No API key found in process.env');
+        console.log('📋 Available env vars:', Object.keys(process.env).filter(k => k.startsWith('NEXT_PUBLIC')));
+      }
+    } catch (error) {
+      console.warn('⚠️ Server environment check failed:', error);
+    }
+
+    // Method 3: Check for common environment variable names
+    const possibleNames = [
+      'NEXT_PUBLIC_HUGGING_FACE_API_KEY',
+      'HUGGING_FACE_API_KEY',
+      'HF_API_KEY',
+      'REACT_APP_HUGGING_FACE_API_KEY'
+    ];
+
+    for (const name of possibleNames) {
+      try {
+        if (typeof process !== 'undefined' && process.env && process.env[name]) {
+          console.log(`✅ Found API key with name: ${name}`);
+          return process.env[name];
+        }
+      } catch (error) {
+        // Continue checking other names
+      }
+    }
+
+    console.log('❌ API key not found in any location');
+    console.log('💡 To fix this:');
+    console.log('  1. Ensure you have NEXT_PUBLIC_HUGGING_FACE_API_KEY in Vercel');
+    console.log('  2. Redeploy your app after adding the env var');
+    console.log('  3. Check the env var is spelled correctly');
+    
     return '';
   }
 
   isEnabled() {
-    return this.enabled && this.apiKey;
+    const enabled = this.enabled && this.apiKey && this.apiKey.length > 0;
+    console.log('🔋 AI Service Status:', {
+      enabled: this.enabled,
+      hasApiKey: !!this.apiKey,
+      keyLength: this.apiKey?.length || 0,
+      finalEnabled: enabled
+    });
+    return enabled;
+  }
+
+  // Add a method to manually test environment variable access
+  debugEnvironment() {
+    console.log('🔍 FULL ENVIRONMENT DEBUG:');
+    
+    // Check all possible locations
+    const locations = [];
+    
+    try {
+      if (typeof window !== 'undefined') {
+        locations.push({
+          location: 'window.__NEXT_DATA__.env',
+          available: !!window.__NEXT_DATA__?.env,
+          keys: window.__NEXT_DATA__?.env ? Object.keys(window.__NEXT_DATA__.env) : []
+        });
+        
+        locations.push({
+          location: 'window.NEXT_PUBLIC_HUGGING_FACE_API_KEY',
+          available: !!window.NEXT_PUBLIC_HUGGING_FACE_API_KEY,
+          value: window.NEXT_PUBLIC_HUGGING_FACE_API_KEY ? 'SET' : 'NOT SET'
+        });
+      }
+    } catch (e) {
+      locations.push({ location: 'window', error: e.message });
+    }
+    
+    try {
+      if (typeof process !== 'undefined' && process.env) {
+        const envKeys = Object.keys(process.env).filter(k => k.includes('HUGGING') || k.startsWith('NEXT_PUBLIC'));
+        locations.push({
+          location: 'process.env',
+          available: true,
+          relevantKeys: envKeys
+        });
+      }
+    } catch (e) {
+      locations.push({ location: 'process.env', error: e.message });
+    }
+    
+    console.table(locations);
+    return locations;
   }
 
   async generatePersonalizedAdvice(userProfile, weakAreas, answers) {
@@ -666,6 +778,16 @@ const AIEnhancedRecommendations = ({ userProfile, recommendations, answers, ques
             )}
           </div>
           <div className="flex gap-2">
+            <button
+              onClick={() => {
+                console.log('🔍 ENVIRONMENT DEBUG:');
+                aiService.debugEnvironment();
+                alert('Check browser console (F12) for detailed environment debug info!');
+              }}
+              className="text-xs bg-gray-600 text-white px-2 py-1 rounded hover:bg-gray-700"
+            >
+              🔍 Debug
+            </button>
             <button
               onClick={testAiConnection}
               disabled={testing}
