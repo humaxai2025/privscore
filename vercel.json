@@ -1,11 +1,7 @@
 {
   "version": 2,
   "name": "privscore",
-  "env": {
-    "NEXT_PUBLIC_HUGGING_FACE_API_KEY": "@hugging-face-api-key",
-    "NEXT_PUBLIC_AI_FEATURES_ENABLED": "true",
-    "NEXT_PUBLIC_APP_ENV": "production"
-  },
+ 
   "headers": [
     {
       "source": "/(.*)",
