@@ -1,6 +1,11 @@
 {
   "version": 2,
   "name": "privscore",
+  "env": {
+    "NEXT_PUBLIC_HUGGING_FACE_API_KEY": "@hugging-face-api-key",
+    "NEXT_PUBLIC_AI_FEATURES_ENABLED": "true",
+    "NEXT_PUBLIC_APP_ENV": "production"
+  },
   "headers": [
     {
       "source": "/(.*)",
@@ -23,9 +28,15 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:;"
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https: blob:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https: wss: https://api-inference.huggingface.co https://huggingface.co; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self' https:; media-src 'self' data: blob:;"
         }
       ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/ai/(.*)",
+      "destination": "/api/ai/$1"
     }
   ],
   "cleanUrls": true,
