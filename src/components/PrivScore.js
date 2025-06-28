@@ -1,7 +1,17 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Shield, Lock, Award, CheckCircle, AlertCircle, Info, RefreshCw, TrendingUp, Copy, Download, ExternalLink } from "lucide-react";
+import { Shield, Lock, Award, CheckCircle, AlertCircle, Info, RefreshCw, TrendingUp, Copy, Download, ExternalLink, Brain, Target } from "lucide-react";
+
+// Import AI components
+import { 
+  AIFeaturesIntegration,
+  AIQuestionHelper,
+  AIEnhancedRecommendations,
+  AIRiskInsights,
+  AIProgressTracker,
+  AIService
+} from './AiService'; // Note: Fix the filename typo from AiServcie to AiService
 
 // Complete set of questions for the PrivScore assessment
 const securityQuestions = [
@@ -420,6 +430,7 @@ export default function PrivScoreComplete() {
   const [answers, setAnswers] = useState([]);
   const [showResults, setShowResults] = useState(false);
   const [previousScore, setPreviousScore] = useState(null);
+  const [userProfile, setUserProfile] = useState({ role: 'professional', industry: 'technology' });
   
   const maxPossibleScore = securityQuestions.reduce((sum, q) => sum + 10, 0);
   
@@ -776,41 +787,53 @@ export default function PrivScoreComplete() {
   const progressPercentage = (currentQuestion / securityQuestions.length) * 100;
   
   return (
-    <div className="font-sans">
-      <div className="bg-gradient-to-br from-slate-50 to-blue-100 p-6 min-h-screen flex flex-col items-center transition-colors">
-        <h1 className="text-2xl font-bold text-center mb-8 text-gray-900">PrivScore Security Assessment</h1>
-        
-        {showResults ? (
-          <ResultsView 
-            totalScore={totalScore}
-            maxScore={maxPossibleScore}
-            securityLevel={getSecurityLevel()}
-            recommendations={getRecommendations()}
-            categoryScores={calculateCategoryScores()}
-            previousScore={previousScore}
-            securityIncidents={getCurrentSecurityIncidents()}
-            onRestart={handleRestart}
-          />
-        ) : (
-          <QuestionView 
-            question={securityQuestions[currentQuestion]}
-            questionNumber={currentQuestion + 1}
-            totalQuestions={securityQuestions.length}
-            progress={progressPercentage}
-            onAnswer={handleAnswer}
-            onPrevious={handlePrevious}
-            onSkip={handleSkip}
-            canGoPrevious={currentQuestion > 0}
-          />
-        )}
-        
-        <div className="text-xs text-gray-500 mt-6">Built with ❤️ by HumanXAI</div>
+    <AIFeaturesIntegration
+      userAnswers={answers}
+      questions={securityQuestions}
+      recommendations={getRecommendations()}
+      totalScore={totalScore}
+      maxScore={maxPossibleScore}
+      userProfile={userProfile}
+    >
+      <div className="font-sans">
+        <div className="bg-gradient-to-br from-slate-50 to-blue-100 p-6 min-h-screen flex flex-col items-center transition-colors">
+          <h1 className="text-2xl font-bold text-center mb-8 text-gray-900">PrivScore Security Assessment</h1>
+          
+          {showResults ? (
+            <ResultsView 
+              totalScore={totalScore}
+              maxScore={maxPossibleScore}
+              securityLevel={getSecurityLevel()}
+              recommendations={getRecommendations()}
+              categoryScores={calculateCategoryScores()}
+              previousScore={previousScore}
+              securityIncidents={getCurrentSecurityIncidents()}
+              onRestart={handleRestart}
+              userProfile={userProfile}
+              answers={answers}
+              questions={securityQuestions}
+            />
+          ) : (
+            <QuestionView 
+              question={securityQuestions[currentQuestion]}
+              questionNumber={currentQuestion + 1}
+              totalQuestions={securityQuestions.length}
+              progress={progressPercentage}
+              onAnswer={handleAnswer}
+              onPrevious={handlePrevious}
+              onSkip={handleSkip}
+              canGoPrevious={currentQuestion > 0}
+            />
+          )}
+          
+          <div className="text-xs text-gray-500 mt-6">Built with ❤️ by HumanXAI</div>
+        </div>
       </div>
-    </div>
+    </AIFeaturesIntegration>
   );
 }
 
-// Question view component
+// Question view component with AI integration
 function QuestionView({ 
   question, 
   questionNumber, 
@@ -819,7 +842,9 @@ function QuestionView({
   onAnswer, 
   onPrevious, 
   onSkip,
-  canGoPrevious
+  canGoPrevious,
+  aiService,
+  AIQuestionHelper
 }) {
   return (
     <div className="bg-white shadow-xl rounded-2xl p-6 md:p-8 max-w-2xl w-full transition-colors">
@@ -851,6 +876,11 @@ function QuestionView({
         ))}
       </div>
       
+      {/* AI Question Helper */}
+      {AIQuestionHelper && aiService && (
+        <AIQuestionHelper question={question} aiService={aiService} />
+      )}
+      
       <div className="flex justify-between mt-8">
         <button 
           onClick={onPrevious}
@@ -875,7 +905,7 @@ function QuestionView({
   );
 }
 
-// Results view component
+// Results view component with AI integration
 function ResultsView({ 
   totalScore, 
   maxScore, 
@@ -884,7 +914,15 @@ function ResultsView({
   categoryScores,
   previousScore,
   securityIncidents,
-  onRestart 
+  onRestart,
+  userProfile,
+  answers,
+  questions,
+  AIEnhancedRecommendations,
+  AIRiskInsights,
+  AIProgressTracker,
+  aiService,
+  riskAnalysis
 }) {
   const formatCategoryScores = () => {
     return Object.fromEntries(
@@ -943,6 +981,22 @@ function ResultsView({
         </p>
       </div>
       
+      {/* AI Progress Tracker */}
+      {AIProgressTracker && (
+        <AIProgressTracker 
+          currentScore={totalScore}
+          maxScore={maxScore}
+          riskAnalysis={riskAnalysis}
+        />
+      )}
+      
+      {/* AI Risk Insights */}
+      {AIRiskInsights && riskAnalysis && (
+        <div className="mb-6">
+          <AIRiskInsights riskAnalysis={riskAnalysis} />
+        </div>
+      )}
+      
       {/* Progress Indicator */}
       {previousScore && (
         <div className="mb-6 p-4 bg-gray-50 rounded-lg">
@@ -985,6 +1039,17 @@ function ResultsView({
             </div>
           </div>
         </div>
+      )}
+      
+      {/* AI Enhanced Recommendations */}
+      {AIEnhancedRecommendations && aiService && (
+        <AIEnhancedRecommendations
+          userProfile={userProfile}
+          recommendations={recommendations}
+          answers={answers}
+          questions={questions}
+          aiService={aiService}
+        />
       )}
       
       {/* PassGuard Tool Promotion */}
