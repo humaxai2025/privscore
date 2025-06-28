@@ -47,13 +47,23 @@ class AIService {
   }
 
   async generatePersonalizedAdvice(userProfile, weakAreas, answers) {
+    console.log('🤖 Starting AI advice generation...');
+    console.log('📊 AI Service Status:', {
+      hasApiKey: !!this.apiKey,
+      isEnabled: this.isEnabled(),
+      apiKeyLength: this.apiKey?.length || 0,
+      weakAreas: weakAreas
+    });
+
     // Always try AI first if available
     if (this.isEnabled()) {
       try {
-        console.log('🤖 Calling Hugging Face AI for personalized advice...');
+        console.log('🚀 CALLING HUGGING FACE API...');
         
         const prompt = `As a cybersecurity expert, provide 3 specific actionable security recommendations for a ${userProfile.role || 'professional'} working in ${userProfile.industry || 'technology'} who has weaknesses in: ${weakAreas.join(', ')}. Make recommendations practical and immediate.`;
         
+        console.log('📝 Sending prompt to AI:', prompt);
+
         const response = await fetch(`${this.baseUrl}${this.models.textGeneration}`, {
           headers: {
             'Authorization': `Bearer ${this.apiKey}`,
@@ -70,22 +80,44 @@ class AIService {
           }),
         });
 
+        console.log('📡 API Response Status:', response.status, response.statusText);
+
         if (response.ok) {
           const result = await response.json();
-          console.log('✅ AI API call successful');
-          return this.parseAIAdvice(result);
+          console.log('✅ AI API CALL SUCCESSFUL!');
+          console.log('🤖 Raw AI Response:', result);
+          
+          const parsedAdvice = this.parseAIAdvice(result);
+          console.log('✨ Parsed AI Advice:', parsedAdvice);
+          
+          // Mark as truly AI-generated
+          return parsedAdvice.map(advice => `🤖 AI: ${advice}`);
         } else {
-          console.warn('⚠️ AI API call failed, using fallback');
-          throw new Error('API call failed');
+          const errorText = await response.text();
+          console.error('❌ AI API CALL FAILED:', {
+            status: response.status,
+            statusText: response.statusText,
+            error: errorText
+          });
+          throw new Error(`API call failed: ${response.status} ${response.statusText}`);
         }
       } catch (error) {
-        console.warn('⚠️ AI service unavailable, using fallback advice:', error);
+        console.error('💥 AI SERVICE ERROR:', error);
+        console.log('🔄 Falling back to rule-based advice...');
       }
+    } else {
+      console.log('⚠️ AI NOT ENABLED - using fallbacks');
+      console.log('🔍 Reasons AI disabled:', {
+        hasApiKey: !!this.apiKey,
+        enabled: this.enabled,
+        isEnabledCheck: this.isEnabled()
+      });
     }
     
     // Fallback to enhanced rule-based advice
-    console.log('📋 Using enhanced fallback advice');
-    return this.getFallbackAdvice(weakAreas);
+    console.log('📋 USING FALLBACK ADVICE (Not AI-generated)');
+    const fallbackAdvice = this.getFallbackAdvice(weakAreas);
+    return fallbackAdvice.map(advice => `📋 Rule-based: ${advice}`);
   }
 
   async analyzeRiskPatterns(answers, questions) {
@@ -527,23 +559,86 @@ const AIEnhancedRecommendations = ({ userProfile, recommendations, answers, ques
   const [loading, setLoading] = useState(true);
   const [showAIAdvice, setShowAIAdvice] = useState(false);
   const [isAiGenerated, setIsAiGenerated] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState(null);
 
   useEffect(() => {
     const generateAIAdvice = async () => {
-      if (!recommendations || recommendations.length === 0) {
-        setLoading(false);
-        return;
+      console.log('🤖 Generating AI advice...', { recommendations: recommendations?.length });
+      
+      // Always generate advice, even if no specific recommendations
+      const weakAreas = recommendations && recommendations.length > 0 
+        ? recommendations.map(rec => rec.category || 'General Security')
+        : ['Account Security', 'Digital Awareness', 'Data Protection'];
+      
+      try {
+        const advice = await aiService.generatePersonalizedAdvice(userProfile, weakAreas, answers);
+        console.log('🤖 AI advice generated:', advice);
+        
+        // Check if advice contains AI markers
+        const containsAiMarker = advice.some(a => a.includes('🤖 AI:'));
+        const containsRuleMarker = advice.some(a => a.includes('📋 Rule-based:'));
+        
+        setAiAdvice(advice);
+        setIsAiGenerated(containsAiMarker);
+        
+        console.log('🔍 AI Status Check:', {
+          containsAiMarker,
+          containsRuleMarker,
+          isAiEnabled: aiService.isEnabled(),
+          adviceCount: advice.length
+        });
+        
+      } catch (error) {
+        console.error('🤖 AI advice generation failed:', error);
+        // Fallback advice
+        setAiAdvice([
+          '📋 Rule-based: Strengthen account security with two-factor authentication',
+          '📋 Rule-based: Use unique passwords for every account',
+          '📋 Rule-based: Keep software and devices regularly updated'
+        ]);
+        setIsAiGenerated(false);
       }
       
-      const weakAreas = recommendations.map(rec => rec.category || 'General Security');
-      const advice = await aiService.generatePersonalizedAdvice(userProfile, weakAreas, answers);
-      setAiAdvice(advice);
-      setIsAiGenerated(aiService.isEnabled());
       setLoading(false);
     };
 
     generateAIAdvice();
   }, [recommendations, userProfile, answers, aiService]);
+
+  const testAiConnection = async () => {
+    setTesting(true);
+    setTestResult(null);
+    
+    try {
+      console.log('🧪 Testing AI connection...');
+      
+      const testAdvice = await aiService.generatePersonalizedAdvice(
+        { role: 'tester', industry: 'testing' },
+        ['Account Security'],
+        [0, 0, 0] // Poor scores to trigger advice
+      );
+      
+      const isActuallyAi = testAdvice.some(advice => advice.includes('🤖 AI:'));
+      
+      setTestResult({
+        success: isActuallyAi,
+        message: isActuallyAi 
+          ? '✅ AI is working! Live responses from Hugging Face API'
+          : '⚠️ AI not active - using rule-based fallbacks',
+        advice: testAdvice
+      });
+      
+    } catch (error) {
+      setTestResult({
+        success: false,
+        message: `❌ AI test failed: ${error.message}`,
+        advice: []
+      });
+    }
+    
+    setTesting(false);
+  };
 
   if (loading) {
     return (
@@ -564,25 +659,53 @@ const AIEnhancedRecommendations = ({ userProfile, recommendations, answers, ques
             <Brain className="w-5 h-5 text-purple-600" />
             <h3 className="font-semibold text-gray-900">🤖 AI-Enhanced Security Insights</h3>
             {isAiGenerated && (
-              <span className="text-xs bg-green-100 text-green-600 px-2 py-1 rounded">Live AI</span>
+              <span className="text-xs bg-green-100 text-green-600 px-2 py-1 rounded font-bold">🟢 LIVE AI</span>
             )}
             {!isAiGenerated && (
-              <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">Enhanced Rules</span>
+              <span className="text-xs bg-orange-100 text-orange-600 px-2 py-1 rounded font-bold">📋 FALLBACK</span>
             )}
           </div>
-          <button
-            onClick={() => setShowAIAdvice(!showAIAdvice)}
-            className="text-purple-600 hover:text-purple-800 text-sm flex items-center gap-1"
-          >
-            <Zap className="w-4 h-4" />
-            {showAIAdvice ? 'Hide' : 'Show'} AI Advice
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={testAiConnection}
+              disabled={testing}
+              className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1"
+            >
+              {testing ? <Loader className="w-3 h-3 animate-spin" /> : '🧪'}
+              {testing ? 'Testing...' : 'Test AI'}
+            </button>
+            <button
+              onClick={() => {
+                console.log('🤖 Toggle AI advice:', !showAIAdvice, 'Advice count:', aiAdvice.length);
+                setShowAIAdvice(!showAIAdvice);
+              }}
+              className="text-purple-600 hover:text-purple-800 text-sm flex items-center gap-1 transition-colors"
+            >
+              <Zap className="w-4 h-4" />
+              {showAIAdvice ? 'Hide' : 'Show'} Advice
+            </button>
+          </div>
         </div>
 
-        {showAIAdvice && aiAdvice.length > 0 && (
+        {testResult && (
+          <div className={`mb-3 p-2 rounded text-xs ${
+            testResult.success 
+              ? 'bg-green-100 text-green-700 border border-green-200' 
+              : 'bg-red-100 text-red-700 border border-red-200'
+          }`}>
+            <div className="font-bold">{testResult.message}</div>
+            {testResult.advice.length > 0 && (
+              <div className="mt-1 text-xs">
+                Sample: {testResult.advice[0].substring(0, 80)}...
+              </div>
+            )}
+          </div>
+        )}
+
+        {showAIAdvice && (
           <div className="space-y-2">
-            <div className="text-sm text-purple-700 mb-2">
-              {isAiGenerated ? 'AI-generated recommendations based on your profile:' : 'Enhanced rule-based recommendations:'}
+            <div className="text-sm text-purple-700 mb-2 font-medium">
+              {isAiGenerated ? '🤖 Live AI recommendations from Hugging Face:' : '📋 Enhanced rule-based recommendations:'}
             </div>
             {aiAdvice.map((advice, index) => (
               <div key={index} className="flex items-start gap-2 text-sm">
@@ -594,7 +717,7 @@ const AIEnhancedRecommendations = ({ userProfile, recommendations, answers, ques
         )}
 
         <div className="mt-3 text-xs text-purple-600">
-          💡 {isAiGenerated ? 'AI insights generated using Hugging Face models' : 'Add HUGGING_FACE_API_KEY for live AI insights'} based on current threat landscape
+          💡 {isAiGenerated ? '🟢 Connected to Hugging Face AI models' : '📋 No AI connection - using smart fallbacks'}
         </div>
       </div>
     </div>
