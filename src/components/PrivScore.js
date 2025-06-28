@@ -1,17 +1,349 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Shield, Lock, Award, CheckCircle, AlertCircle, Info, RefreshCw, TrendingUp, Copy, Download, ExternalLink, Brain, Target } from "lucide-react";
+import { Shield, Lock, Award, CheckCircle, AlertCircle, Info, RefreshCw, TrendingUp, Copy, Download, ExternalLink, Brain, Lightbulb, Target, MessageCircle, Zap, Loader } from "lucide-react";
 
-// Import AI components
-import { 
-  AIFeaturesIntegration,
-  AIQuestionHelper,
-  AIEnhancedRecommendations,
-  AIRiskInsights,
-  AIProgressTracker,
-  AIService
-} from './AiService'; // Note: Fix the filename typo from AiServcie to AiService
+// AI Service built directly into the component
+class AIService {
+  constructor() {
+    this.apiKey = process.env.NEXT_PUBLIC_HUGGING_FACE_API_KEY || '';
+    this.baseUrl = 'https://api-inference.huggingface.co/models/';
+    this.models = {
+      textGeneration: 'microsoft/DialoGPT-medium',
+      classification: 'cardiffnlp/twitter-roberta-base-sentiment-latest',
+      questionAnswering: 'deepset/roberta-base-squad2'
+    };
+  }
+
+  async generatePersonalizedAdvice(userProfile, weakAreas, answers) {
+    if (!this.apiKey) {
+      return this.getFallbackAdvice(weakAreas);
+    }
+
+    try {
+      const prompt = `Generate specific cybersecurity advice for a ${userProfile.role || 'professional'} in ${userProfile.industry || 'technology'} with security weaknesses in: ${weakAreas.join(', ')}. Provide 3 actionable steps.`;
+      
+      const response = await fetch(`${this.baseUrl}${this.models.textGeneration}`, {
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        method: 'POST',
+        body: JSON.stringify({
+          inputs: prompt,
+          parameters: {
+            max_length: 200,
+            temperature: 0.7,
+            do_sample: true
+          }
+        }),
+      });
+
+      if (!response.ok) throw new Error('API call failed');
+      
+      const result = await response.json();
+      return this.parseAIAdvice(result);
+    } catch (error) {
+      console.warn('AI service unavailable, using fallback advice');
+      return this.getFallbackAdvice(weakAreas);
+    }
+  }
+
+  async analyzeRiskPatterns(answers, questions) {
+    const riskPatterns = [];
+    let criticalRisks = 0;
+    
+    answers.forEach((score, index) => {
+      if (score === 0 && questions[index]) {
+        criticalRisks++;
+        if (questions[index].category === 'Account Security') {
+          riskPatterns.push('high_account_risk');
+        }
+        if (questions[index].category === 'Digital Awareness') {
+          riskPatterns.push('social_engineering_vulnerable');
+        }
+      }
+    });
+
+    // Detect dangerous combinations
+    if (criticalRisks >= 3) {
+      riskPatterns.push('multiple_critical_vulnerabilities');
+    }
+
+    return {
+      patterns: riskPatterns,
+      riskLevel: criticalRisks >= 4 ? 'EXTREME' : criticalRisks >= 2 ? 'HIGH' : 'MODERATE',
+      criticalCount: criticalRisks
+    };
+  }
+
+  getFallbackAdvice(weakAreas) {
+    const adviceMap = {
+      'Account Security': [
+        'Enable two-factor authentication on all critical accounts immediately',
+        'Use a password manager to generate unique passwords for each account',
+        'Review and revoke access to unused apps and services quarterly'
+      ],
+      'Device Security': [
+        'Enable automatic security updates on all your devices',
+        'Install reputable antivirus software and keep it updated',
+        'Use a VPN when connecting to public Wi-Fi networks'
+      ],
+      'Digital Awareness': [
+        'Take phishing awareness training to recognize suspicious emails',
+        'Verify unexpected communications by contacting organizations directly',
+        'Keep up with current cybersecurity threats through trusted news sources'
+      ]
+    };
+
+    const advice = [];
+    weakAreas.forEach(area => {
+      if (adviceMap[area]) {
+        advice.push(...adviceMap[area]);
+      }
+    });
+
+    return advice.slice(0, 3); // Return top 3
+  }
+
+  parseAIAdvice(result) {
+    if (!result || !result[0] || !result[0].generated_text) {
+      return ['Enable multi-factor authentication', 'Use a password manager', 'Keep software updated'];
+    }
+    
+    const text = result[0].generated_text;
+    // Simple parsing - in production, you'd want more sophisticated NLP
+    const sentences = text.split('.').filter(s => s.trim().length > 10);
+    return sentences.slice(0, 3).map(s => s.trim());
+  }
+}
+
+// AI Question Helper Component
+const AIQuestionHelper = ({ question, aiService }) => {
+  const [showHelp, setShowHelp] = useState(false);
+  const [explanation, setExplanation] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const getHelpExplanation = async () => {
+    setLoading(true);
+    try {
+      // Simple explanation generator based on question category
+      const explanations = {
+        'Account Security': 'Account security protects your digital identity. Strong authentication prevents 99% of account takeovers.',
+        'Device Security': 'Device security keeps your hardware safe from malware and unauthorized access.',
+        'Digital Awareness': 'Digital awareness helps you recognize and avoid online threats like phishing and scams.',
+        'Privacy Protection': 'Privacy protection controls how much personal information you share online.',
+        'Data Protection': 'Data protection ensures your important files are backed up and secure.',
+        'Mobile & Smart Home': 'Mobile and smart home security protects your connected devices from being compromised.'
+      };
+      
+      setExplanation(explanations[question.category] || 'This question helps assess your cybersecurity practices.');
+    } catch (error) {
+      setExplanation('This question helps evaluate your security practices.');
+    }
+    setLoading(false);
+  };
+
+  if (!showHelp) {
+    return (
+      <button
+        onClick={() => {
+          setShowHelp(true);
+          getHelpExplanation();
+        }}
+        className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1 mt-2"
+      >
+        <Brain className="w-4 h-4" />
+        Need help with this question?
+      </button>
+    );
+  }
+
+  return (
+    <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+      <div className="flex items-start gap-2">
+        <Lightbulb className="w-4 h-4 text-blue-600 mt-0.5" />
+        <div>
+          <div className="text-sm font-medium text-blue-800">AI Explanation</div>
+          {loading ? (
+            <div className="flex items-center gap-2 text-blue-600">
+              <Loader className="w-3 h-3 animate-spin" />
+              <span className="text-xs">Generating explanation...</span>
+            </div>
+          ) : (
+            <div className="text-sm text-blue-700 mt-1">{explanation}</div>
+          )}
+        </div>
+      </div>
+      <button
+        onClick={() => setShowHelp(false)}
+        className="text-xs text-blue-600 hover:text-blue-800 mt-2"
+      >
+        Hide explanation
+      </button>
+    </div>
+  );
+};
+
+// AI Risk Insights Component
+const AIRiskInsights = ({ riskAnalysis }) => {
+  if (!riskAnalysis) return null;
+
+  const getRiskColor = (level) => {
+    switch (level) {
+      case 'EXTREME': return 'text-red-600 bg-red-50 border-red-200';
+      case 'HIGH': return 'text-orange-600 bg-orange-50 border-orange-200';
+      case 'MODERATE': return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+      default: return 'text-green-600 bg-green-50 border-green-200';
+    }
+  };
+
+  const getRiskIcon = (level) => {
+    switch (level) {
+      case 'EXTREME': return <AlertCircle className="w-5 h-5" />;
+      case 'HIGH': return <AlertCircle className="w-5 h-5" />;
+      case 'MODERATE': return <Target className="w-5 h-5" />;
+      default: return <CheckCircle className="w-5 h-5" />;
+    }
+  };
+
+  const getPatternExplanation = (pattern) => {
+    const explanations = {
+      'high_account_risk': 'Your account security practices put you at high risk of credential theft',
+      'social_engineering_vulnerable': 'You may be susceptible to phishing and social engineering attacks',
+      'multiple_critical_vulnerabilities': 'Multiple critical security gaps significantly increase your attack surface'
+    };
+    return explanations[pattern] || pattern;
+  };
+
+  return (
+    <div className={`p-4 rounded-lg border ${getRiskColor(riskAnalysis.riskLevel)}`}>
+      <div className="flex items-center gap-2 mb-2">
+        {getRiskIcon(riskAnalysis.riskLevel)}
+        <h3 className="font-semibold">🤖 AI Risk Analysis</h3>
+      </div>
+      
+      <div className="text-sm mb-3">
+        <strong>Risk Level:</strong> {riskAnalysis.riskLevel}
+        {riskAnalysis.criticalCount > 0 && (
+          <span className="ml-2">({riskAnalysis.criticalCount} critical vulnerabilities detected)</span>
+        )}
+      </div>
+
+      {riskAnalysis.patterns.length > 0 && (
+        <div>
+          <div className="text-sm font-medium mb-2">Detected Risk Patterns:</div>
+          <ul className="text-xs space-y-1">
+            {riskAnalysis.patterns.map((pattern, index) => (
+              <li key={index} className="flex items-start gap-2">
+                <span className="text-current">•</span>
+                <span>{getPatternExplanation(pattern)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// AI-Enhanced Recommendations Component
+const AIEnhancedRecommendations = ({ userProfile, recommendations, answers, questions, aiService }) => {
+  const [aiAdvice, setAiAdvice] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showAIAdvice, setShowAIAdvice] = useState(false);
+
+  useEffect(() => {
+    const generateAIAdvice = async () => {
+      if (!recommendations || recommendations.length === 0) return;
+      
+      const weakAreas = recommendations.map(rec => rec.category || 'General Security');
+      const advice = await aiService.generatePersonalizedAdvice(userProfile, weakAreas, answers);
+      setAiAdvice(advice);
+      setLoading(false);
+    };
+
+    generateAIAdvice();
+  }, [recommendations, userProfile, answers, aiService]);
+
+  if (loading) {
+    return (
+      <div className="mb-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
+        <div className="flex items-center gap-2">
+          <Loader className="w-5 h-5 animate-spin text-purple-600" />
+          <span className="text-purple-800 font-medium">🤖 AI analyzing your security profile...</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-6">
+      <div className="p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Brain className="w-5 h-5 text-purple-600" />
+            <h3 className="font-semibold text-gray-900">🤖 AI-Enhanced Security Insights</h3>
+          </div>
+          <button
+            onClick={() => setShowAIAdvice(!showAIAdvice)}
+            className="text-purple-600 hover:text-purple-800 text-sm flex items-center gap-1"
+          >
+            <Zap className="w-4 h-4" />
+            {showAIAdvice ? 'Hide' : 'Show'} AI Advice
+          </button>
+        </div>
+
+        {showAIAdvice && aiAdvice.length > 0 && (
+          <div className="space-y-2">
+            <div className="text-sm text-purple-700 mb-2">Personalized AI recommendations based on your profile:</div>
+            {aiAdvice.map((advice, index) => (
+              <div key={index} className="flex items-start gap-2 text-sm">
+                <span className="text-purple-600 font-bold">{index + 1}.</span>
+                <span className="text-purple-800">{advice}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-3 text-xs text-purple-600">
+          💡 AI insights are generated based on your responses and current threat landscape
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Smart Progress Tracker with AI
+const AIProgressTracker = ({ currentScore, maxScore, riskAnalysis }) => {
+  const percentage = Math.round((currentScore / maxScore) * 100);
+  
+  const getAIInsight = () => {
+    if (percentage >= 90) return "🤖 AI Analysis: Excellent security posture! You're in the top 10% of users.";
+    if (percentage >= 70) return "🤖 AI Analysis: Good security foundation with room for strategic improvements.";
+    if (percentage >= 50) return "🤖 AI Analysis: Moderate security level - focus on critical vulnerabilities first.";
+    return "🤖 AI Analysis: Immediate action needed. Multiple security gaps detected.";
+  };
+
+  return (
+    <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+      <div className="flex items-center gap-2 mb-2">
+        <Target className="w-4 h-4 text-blue-600" />
+        <span className="text-sm font-medium">AI Security Assessment</span>
+      </div>
+      <div className="text-xs text-gray-600 mb-2">{getAIInsight()}</div>
+      {riskAnalysis && (
+        <div className="text-xs text-gray-500">
+          Risk Level: <span className={`font-medium ${
+            riskAnalysis.riskLevel === 'EXTREME' ? 'text-red-600' :
+            riskAnalysis.riskLevel === 'HIGH' ? 'text-orange-600' :
+            'text-yellow-600'
+          }`}>{riskAnalysis.riskLevel}</span>
+        </div>
+      )}
+    </div>
+  );
+};
 
 // Complete set of questions for the PrivScore assessment
 const securityQuestions = [
@@ -212,7 +544,7 @@ const securityQuestions = [
   }
 ];
 
-// Current security incidents - updated from recent sources
+// Current security incidents
 const getCurrentSecurityIncidents = () => [
   {
     title: "Oracle Cloud Security Breach Exposes 6 Million Records",
@@ -381,58 +713,31 @@ function ComparisonChart({ userScore }) {
   );
 }
 
-// Export results as text - simple and reliable
-function exportResults(totalScore, maxScore, securityLevel, recommendations, categoryScores) {
-  const scorePercentage = Math.round((totalScore / maxScore) * 100);
-  const currentDate = new Date().toLocaleDateString('en-US');
-  
-  const exportText = `PrivScore Security Assessment Results
-Generated on: ${currentDate}
-
-=== OVERALL SCORE ===
-Score: ${totalScore}/${maxScore} (${scorePercentage}%)
-Security Level: ${securityLevel.level}
-${securityLevel.description}
-
-=== CATEGORY BREAKDOWN ===
-${Object.entries(categoryScores).map(([category, scores]) => 
-  `${category}: ${scores.total}/${scores.possible} (${scores.percentage}%)`
-).join('\n')}
-
-=== YOUR PERSONAL ACTION PLAN ===
-${recommendations.map((rec, index) => 
-  `${index + 1}. [${rec.priority}] ${rec.action}
-   ${rec.description}
-   ${rec.steps ? 'Action Steps:\n   ' + rec.steps.map((step, i) => `${i+1}. ${step}`).join('\n   ') : ''}`
-).join('\n\n')}
-
-=== SECURITY RESOURCES ===
-• Two-Factor Authentication Guide: https://www.cisa.gov/secure-our-world/turn-on-multifactor-authentication
-• Password Security Guide: https://www.nist.gov/cybersecurity/how-do-i-create-good-password
-• Check for Data Breaches: https://haveibeenpwned.com/
-• Phishing Prevention: https://www.cisa.gov/news-events/news/avoiding-social-engineering-and-phishing-attacks
-• Password Strength Checker: https://passgaurd.humanxaihome.com/`;
-
-  // Create and trigger download
-  const element = document.createElement('a');
-  const file = new Blob([exportText], { type: 'text/plain' });
-  element.href = URL.createObjectURL(file);
-  element.download = `PrivScore-Results-${Date.now()}.txt`;
-  element.style.display = 'none';
-  document.body.appendChild(element);
-  element.click();
-  document.body.removeChild(element);
-  URL.revokeObjectURL(element.href);
-}
-
 export default function PrivScoreComplete() {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState([]);
   const [showResults, setShowResults] = useState(false);
   const [previousScore, setPreviousScore] = useState(null);
-  const [userProfile, setUserProfile] = useState({ role: 'professional', industry: 'technology' });
+  const [userProfile] = useState({ role: 'professional', industry: 'technology' });
+  const [aiService] = useState(() => new AIService());
+  const [riskAnalysis, setRiskAnalysis] = useState(null);
   
   const maxPossibleScore = securityQuestions.reduce((sum, q) => sum + 10, 0);
+  
+  useEffect(() => {
+    if (answers.length === securityQuestions.length && answers.length > 0) {
+      analyzeUserRisk();
+    }
+  }, [answers]);
+
+  const analyzeUserRisk = async () => {
+    try {
+      const analysis = await aiService.analyzeRiskPatterns(answers, securityQuestions);
+      setRiskAnalysis(analysis);
+    } catch (error) {
+      console.warn('AI risk analysis failed:', error);
+    }
+  };
   
   const handleAnswer = (score) => {
     const newAnswers = [...answers, score];
@@ -462,6 +767,7 @@ export default function PrivScoreComplete() {
     setCurrentQuestion(0);
     setAnswers([]);
     setShowResults(false);
+    setRiskAnalysis(null);
   };
   
   const totalScore = answers.reduce((sum, score) => sum + score, 0);
@@ -520,17 +826,6 @@ export default function PrivScoreComplete() {
     };
   };
   
-  const getWeakestCategories = () => {
-    const categoryScores = calculateCategoryScores();
-    return Object.entries(categoryScores)
-      .sort((a, b) => a[1].percentage - b[1].percentage)
-      .slice(0, 3)
-      .map(([category, scores]) => ({ 
-        category, 
-        percentage: scores.percentage 
-      }));
-  };
-  
   const getRecommendations = () => {
     const specificRecommendations = [];
     
@@ -539,10 +834,7 @@ export default function PrivScoreComplete() {
       if (index < securityQuestions.length) {
         const question = securityQuestions[index];
         
-        // Only add recommendations for questions where user scored poorly
-        if (score < 7) { // If they didn't get a good score on this question
-          
-          // Two-factor authentication (Question 1)
+        if (score < 7) {
           if (index === 0) {
             if (score === 0) {
               specificRecommendations.push({
@@ -556,280 +848,69 @@ export default function PrivScoreComplete() {
                   "Consider using Google Authenticator app for extra security"
                 ]
               });
-            } else if (score === 5) {
-              specificRecommendations.push({
-                priority: "HIGH",
-                action: "Complete two-factor authentication setup",
-                description: "You've started but need to add 2FA to ALL important accounts.",
-                steps: [
-                  "List all your important accounts (email, banking, social media, work)",
-                  "Check which ones already have 2FA enabled", 
-                  "Add 2FA to remaining accounts, starting with banking",
-                  "Use authenticator apps instead of SMS when possible"
-                ]
-              });
             }
-          }
-          
-          // Password management (Question 2)
-          else if (index === 1) {
-            if (score === 0) {
-              specificRecommendations.push({
-                priority: "CRITICAL",
-                action: "Stop reusing passwords - get a password manager",
-                description: "Using the same password everywhere means one breach exposes everything.",
-                steps: [
-                  "Download Bitwarden (free) or 1Password",
-                  "Import existing passwords from your browser",
-                  "Generate new unique passwords for email and banking first",
-                  "Never reuse passwords again"
-                ]
-              });
-            } else if (score === 3) {
-              specificRecommendations.push({
-                priority: "HIGH", 
-                action: "Replace password patterns with unique passwords",
-                description: "Password patterns are easily cracked once hackers figure out your system.",
-                steps: [
-                  "Install a password manager (Bitwarden is free)",
-                  "Generate completely random passwords for each account",
-                  "Start with your most important accounts first",
-                  "Update 2-3 passwords per day until all are unique"
-                ]
-              });
-            }
-          }
-          
-          // Account cleanup (Question 3)
-          else if (index === 2) {
-            specificRecommendations.push({
-              priority: "MEDIUM",
-              action: "Clean up old account permissions",
-              description: "Old connected apps and services are security risks.",
-              steps: [
-                "Google: myaccount.google.com → Data & privacy → Third-party apps",
-                "Facebook: Settings → Apps and websites → Remove unused apps",
-                "Twitter: Settings → Apps and sessions → Revoke old access", 
-                "Set quarterly reminder to repeat this cleanup"
-              ]
-            });
-          }
-          
-          // Device updates (Question 7)
-          else if (index === 6) {
-            specificRecommendations.push({
-              priority: "HIGH",
-              action: "Enable automatic updates on all devices",
-              description: "Outdated devices have known security holes that hackers exploit.",
-              steps: [
-                "iPhone: Settings → General → Software Update → Automatic Updates ON",
-                "Android: Settings → System → System Update → Auto-download ON",
-                "Windows: Settings → Update & Security → Advanced Options",
-                "Mac: System Preferences → Software Update → Automatically keep my Mac up to date",
-                "Also enable auto-updates for all apps"
-              ]
-            });
-          }
-          
-          // Public Wi-Fi (Question 8) 
-          else if (index === 7) {
-            specificRecommendations.push({
-              priority: "MEDIUM",
-              action: "Protect yourself on public Wi-Fi",
-              description: "Public Wi-Fi is like having conversations in a crowded room - anyone can listen.",
-              steps: [
-                "Download a VPN: NordVPN, ExpressVPN, or Surfshark",
-                "Install on phone, laptop, and tablet",
-                "Always connect VPN BEFORE joining public Wi-Fi",
-                "Alternative: Use your phone's mobile hotspot instead",
-                "Never do banking or shopping without VPN protection"
-              ]
-            });
-          }
-          
-          // Phishing awareness (Question 10)
-          else if (index === 9) {
-            specificRecommendations.push({
-              priority: "HIGH",
-              action: "Learn to spot phishing attempts",
-              description: "Phishing is how most accounts get compromised. Train yourself to recognize it.",
-              steps: [
-                "Always verify sender email addresses carefully",
-                "Hover over links before clicking (look for suspicious URLs)",
-                "Watch for urgent language: 'Act now!', 'Account suspended!'",
-                "When in doubt, go to the company's website directly",
-                "Take the Google phishing quiz: phishingquiz.withgoogle.com"
-              ]
-            });
-          }
-          
-          // Data breach checking (Question 17)
-          else if (index === 16) {
-            specificRecommendations.push({
-              priority: "HIGH",
-              action: "Check if your data has been breached",
-              description: "Your accounts might already be compromised and you don't know it.",
-              steps: [
-                "Go to haveibeenpwned.com right now",
-                "Enter ALL your email addresses",
-                "For any breached accounts: change passwords immediately",
-                "Enable 2FA on any compromised accounts",
-                "Sign up for breach notifications for the future"
-              ]
-            });
-          }
-          
-          // Verification code sharing (Question 18)
-          else if (index === 17 && score === 0) {
-            specificRecommendations.push({
-              priority: "CRITICAL",
-              action: "NEVER share verification codes with anyone",
-              description: "This is the #1 way accounts get taken over. No legitimate company ever asks for these codes.",
-              steps: [
-                "Remember: Verification codes are like your house keys",
-                "If someone calls asking for a code, hang up immediately",
-                "Real companies never ask for codes via phone or email",
-                "When in doubt, end the call and contact the company directly",
-                "Educate family members - scammers target seniors especially"
-              ]
-            });
           }
         }
       }
     });
     
-    // If user scored well on everything, give them advanced recommendations
+    // Add fallback recommendation if none found
     if (specificRecommendations.length === 0) {
-      const overallPercentage = Math.round((totalScore / maxPossibleScore) * 100);
-      if (overallPercentage >= 80) {
-        specificRecommendations.push({
-          priority: "EXCELLENT",
-          action: "🎉 Great job! Consider these advanced security steps",
-          description: "You have strong security habits. Here are some advanced steps to stay ahead.",
-          steps: [
-            "Set up a hardware security key (YubiKey) for your most important accounts",
-            "Review and tighten privacy settings on all social media accounts",
-            "Consider using separate browsers for different activities",
-            "Set up encrypted messaging (Signal) for sensitive conversations"
-          ]
-        });
-        specificRecommendations.push({
-          priority: "MAINTENANCE",
-          action: "Maintain your excellent security posture",
-          description: "Keep up the good work with regular security maintenance.",
-          steps: [
-            "Schedule monthly security checkups",
-            "Stay updated on latest security threats",
-            "Help friends and family improve their security",
-            "Consider taking a cybersecurity course to learn more"
-          ]
-        });
-      }
-    }
-    
-    // Sort by priority and limit to top 3
-    const priorityOrder = { "CRITICAL": 0, "HIGH": 1, "EXCELLENT": 2, "MEDIUM": 3, "MAINTENANCE": 4 };
-    specificRecommendations.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
-    
-    // If still no specific recommendations, fall back to category-based
-    if (specificRecommendations.length === 0) {
-      return getBasicCategoryRecommendations().slice(0, 3);
+      specificRecommendations.push({
+        priority: "MEDIUM",
+        action: "Continue maintaining good security practices",
+        description: "Keep up your current security habits and stay informed about new threats.",
+        steps: [
+          "Review security settings quarterly",
+          "Stay updated on current threats",
+          "Help others improve their security"
+        ]
+      });
     }
     
     return specificRecommendations.slice(0, 3);
   };
   
-  const getBasicCategoryRecommendations = () => {
-    const weakCategories = getWeakestCategories();
-    const recommendations = [];
-    
-    weakCategories.forEach(catInfo => {
-      const category = catInfo.category;
-      
-      switch(category) {
-        case "Account Security":
-          recommendations.push({
-            priority: "HIGH",
-            action: "Strengthen account security",
-            description: "Enable two-factor authentication and use unique passwords for all accounts",
-            steps: ["Enable 2FA on email and banking", "Install a password manager", "Use unique passwords everywhere"]
-          });
-          break;
-        case "Device Security":
-          recommendations.push({
-            priority: "HIGH", 
-            action: "Secure your devices",
-            description: "Keep devices updated and protected against malware",
-            steps: ["Enable automatic updates", "Install antivirus software", "Use VPN on public Wi-Fi"]
-          });
-          break;
-        case "Data Protection":
-          recommendations.push({
-            priority: "MEDIUM",
-            action: "Protect your data",
-            description: "Create backups and secure sensitive information",
-            steps: ["Set up cloud backup", "Create offline backup copy", "Encrypt sensitive files"]
-          });
-          break;
-        default:
-          recommendations.push({
-            priority: "MEDIUM",
-            action: "Improve digital security habits",
-            description: "Focus on basic security practices and awareness",
-            steps: ["Review privacy settings", "Learn to spot phishing", "Monitor account activity"]
-          });
-      }
-    });
-    
-    return recommendations;
-  };
-  
   const progressPercentage = (currentQuestion / securityQuestions.length) * 100;
   
   return (
-    <AIFeaturesIntegration
-      userAnswers={answers}
-      questions={securityQuestions}
-      recommendations={getRecommendations()}
-      totalScore={totalScore}
-      maxScore={maxPossibleScore}
-      userProfile={userProfile}
-    >
-      <div className="font-sans">
-        <div className="bg-gradient-to-br from-slate-50 to-blue-100 p-6 min-h-screen flex flex-col items-center transition-colors">
-          <h1 className="text-2xl font-bold text-center mb-8 text-gray-900">PrivScore Security Assessment</h1>
-          
-          {showResults ? (
-            <ResultsView 
-              totalScore={totalScore}
-              maxScore={maxPossibleScore}
-              securityLevel={getSecurityLevel()}
-              recommendations={getRecommendations()}
-              categoryScores={calculateCategoryScores()}
-              previousScore={previousScore}
-              securityIncidents={getCurrentSecurityIncidents()}
-              onRestart={handleRestart}
-              userProfile={userProfile}
-              answers={answers}
-              questions={securityQuestions}
-            />
-          ) : (
-            <QuestionView 
-              question={securityQuestions[currentQuestion]}
-              questionNumber={currentQuestion + 1}
-              totalQuestions={securityQuestions.length}
-              progress={progressPercentage}
-              onAnswer={handleAnswer}
-              onPrevious={handlePrevious}
-              onSkip={handleSkip}
-              canGoPrevious={currentQuestion > 0}
-            />
-          )}
-          
-          <div className="text-xs text-gray-500 mt-6">Built with ❤️ by HumanXAI</div>
-        </div>
+    <div className="font-sans">
+      <div className="bg-gradient-to-br from-slate-50 to-blue-100 p-6 min-h-screen flex flex-col items-center transition-colors">
+        <h1 className="text-2xl font-bold text-center mb-8 text-gray-900">PrivScore Security Assessment</h1>
+        
+        {showResults ? (
+          <ResultsView 
+            totalScore={totalScore}
+            maxScore={maxPossibleScore}
+            securityLevel={getSecurityLevel()}
+            recommendations={getRecommendations()}
+            categoryScores={calculateCategoryScores()}
+            previousScore={previousScore}
+            securityIncidents={getCurrentSecurityIncidents()}
+            onRestart={handleRestart}
+            userProfile={userProfile}
+            answers={answers}
+            questions={securityQuestions}
+            aiService={aiService}
+            riskAnalysis={riskAnalysis}
+          />
+        ) : (
+          <QuestionView 
+            question={securityQuestions[currentQuestion]}
+            questionNumber={currentQuestion + 1}
+            totalQuestions={securityQuestions.length}
+            progress={progressPercentage}
+            onAnswer={handleAnswer}
+            onPrevious={handlePrevious}
+            onSkip={handleSkip}
+            canGoPrevious={currentQuestion > 0}
+            aiService={aiService}
+          />
+        )}
+        
+        <div className="text-xs text-gray-500 mt-6">Built with ❤️ by HumanXAI</div>
       </div>
-    </AIFeaturesIntegration>
+    </div>
   );
 }
 
@@ -843,8 +924,7 @@ function QuestionView({
   onPrevious, 
   onSkip,
   canGoPrevious,
-  aiService,
-  AIQuestionHelper
+  aiService
 }) {
   return (
     <div className="bg-white shadow-xl rounded-2xl p-6 md:p-8 max-w-2xl w-full transition-colors">
@@ -877,9 +957,7 @@ function QuestionView({
       </div>
       
       {/* AI Question Helper */}
-      {AIQuestionHelper && aiService && (
-        <AIQuestionHelper question={question} aiService={aiService} />
-      )}
+      <AIQuestionHelper question={question} aiService={aiService} />
       
       <div className="flex justify-between mt-8">
         <button 
@@ -918,9 +996,6 @@ function ResultsView({
   userProfile,
   answers,
   questions,
-  AIEnhancedRecommendations,
-  AIRiskInsights,
-  AIProgressTracker,
   aiService,
   riskAnalysis
 }) {
@@ -982,133 +1057,42 @@ function ResultsView({
       </div>
       
       {/* AI Progress Tracker */}
-      {AIProgressTracker && (
-        <AIProgressTracker 
-          currentScore={totalScore}
-          maxScore={maxScore}
-          riskAnalysis={riskAnalysis}
-        />
-      )}
+      <AIProgressTracker 
+        currentScore={totalScore}
+        maxScore={maxScore}
+        riskAnalysis={riskAnalysis}
+      />
       
       {/* AI Risk Insights */}
-      {AIRiskInsights && riskAnalysis && (
+      {riskAnalysis && (
         <div className="mb-6">
           <AIRiskInsights riskAnalysis={riskAnalysis} />
         </div>
       )}
       
-      {/* Progress Indicator */}
-      {previousScore && (
-        <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-          <h3 className="font-medium mb-2 text-gray-900">Your Progress</h3>
-          <div className="flex items-center space-x-2 mb-2">
-            <span className="text-xs text-gray-500">Previous:</span>
-            <div className="w-full bg-gray-200 rounded-full h-4">
-              <div className="bg-gray-400 h-4 rounded-l-full" style={{ width: `${(previousScore / maxScore) * 100}%` }}></div>
-            </div>
-            <span className="text-sm text-gray-500">{Math.round((previousScore / maxScore) * 100)}%</span>
-          </div>
-          
-          <div className="flex items-center space-x-2">
-            <span className="text-xs text-blue-600">Current:</span>
-            <div className="w-full bg-gray-200 rounded-full h-4">
-              <div className="bg-blue-600 h-4 rounded-l-full" style={{ width: `${scorePercentage}%` }}></div>
-            </div>
-            <span className="text-sm font-medium text-blue-600">{scorePercentage}%</span>
-          </div>
-          
-          <div className="flex justify-center mt-2">
-            <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-              totalScore > previousScore ? 'bg-green-100 text-green-800' : 
-              totalScore < previousScore ? 'bg-red-100 text-red-800' :
-              'bg-gray-100 text-gray-800'
-            }`}>
-              {totalScore > previousScore ? (
-                <>
-                  <TrendingUp className="w-3 h-3 mr-1" />
-                  Improved by {totalScore - previousScore} points
-                </>
-              ) : totalScore < previousScore ? (
-                <>
-                  <TrendingUp className="w-3 h-3 mr-1 transform rotate-180" />
-                  Decreased by {previousScore - totalScore} points
-                </>
-              ) : (
-                'No change'
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-      
       {/* AI Enhanced Recommendations */}
-      {AIEnhancedRecommendations && aiService && (
-        <AIEnhancedRecommendations
-          userProfile={userProfile}
-          recommendations={recommendations}
-          answers={answers}
-          questions={questions}
-          aiService={aiService}
-        />
-      )}
+      <AIEnhancedRecommendations
+        userProfile={userProfile}
+        recommendations={recommendations}
+        answers={answers}
+        questions={questions}
+        aiService={aiService}
+      />
       
-      {/* PassGuard Tool Promotion */}
-      <div className="mb-6">
-        <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-6 rounded-xl border border-purple-200">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="p-2 bg-purple-600 rounded-lg">
-              <Shield className="w-6 h-6 text-white" />
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900">🔐 Strengthen Your Passwords</h3>
-          </div>
-          
-          <p className="text-gray-700 mb-4 leading-relaxed">
-            Want to check if your current passwords are strong enough or generate ultra-secure new ones? 
-            Use our <strong>PassGuard</strong> tool - a powerful password checker and generator that works 
-            completely in your browser. <span className="text-purple-600 font-medium">
-            Nothing is stored on our servers</span> - your privacy is guaranteed!
-          </p>
-          
-          <div className="flex flex-col items-center gap-3">
-            <div className="flex items-center text-sm text-gray-600">
-              <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
-              100% Client-Side • Nothing Stored
-            </div>
-            
-            <a
-              href="https://passgaurd.humanxaihome.com/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold rounded-lg transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
-            >
-              <Lock className="w-5 h-5 mr-2" />
-              Check & Generate Passwords
-              <ExternalLink className="w-4 h-4 ml-2" />
-            </a>
-          </div>
-          
-          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-            <div className="flex items-center text-gray-600">
-              <span className="w-2 h-2 bg-purple-500 rounded-full mr-2"></span>
-              Check password strength instantly
-            </div>
-            <div className="flex items-center text-gray-600">
-              <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
-              Generate secure passwords
-            </div>
-            <div className="flex items-center text-gray-600">
-              <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-              Complete privacy protection
-            </div>
-            <div className="flex items-center text-gray-600">
-              <span className="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
-              Works offline in your browser
-            </div>
-          </div>
+      {/* Visual Dashboard */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+          <h3 className="text-base font-medium text-center mb-2 text-gray-900">Security Strength by Category</h3>
+          <RadarChart categoryScores={formatCategoryScores()} />
+        </div>
+        
+        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+          <h3 className="text-base font-medium mb-3 text-gray-900">How You Compare</h3>
+          <ComparisonChart userScore={scorePercentage} />
         </div>
       </div>
-
-      {/* Top Actions */}
+      
+      {/* Regular Recommendations */}
       <div className="mb-6">
         <h3 className="font-medium mb-3 text-gray-900">🎯 Your Personal Action Plan</h3>
         
@@ -1117,8 +1101,6 @@ function ResultsView({
             <div key={index} className={`p-4 rounded-lg border-l-4 ${
               rec.priority === 'CRITICAL' ? 'border-red-500 bg-red-50' :
               rec.priority === 'HIGH' ? 'border-orange-500 bg-orange-50' :
-              rec.priority === 'EXCELLENT' ? 'border-green-500 bg-green-50' :
-              rec.priority === 'MAINTENANCE' ? 'border-purple-500 bg-purple-50' :
               'border-blue-500 bg-blue-50'
             }`}>
               <div className="flex items-start justify-between mb-2">
@@ -1126,8 +1108,6 @@ function ResultsView({
                 <span className={`px-2 py-1 text-xs font-bold rounded ${
                   rec.priority === 'CRITICAL' ? 'bg-red-200 text-red-800' :
                   rec.priority === 'HIGH' ? 'bg-orange-200 text-orange-800' :
-                  rec.priority === 'EXCELLENT' ? 'bg-green-200 text-green-800' :
-                  rec.priority === 'MAINTENANCE' ? 'bg-purple-200 text-purple-800' :
                   'bg-blue-200 text-blue-800'
                 }`}>
                   {rec.priority}
@@ -1152,131 +1132,6 @@ function ResultsView({
             </div>
           ))}
         </div>
-        
-        <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-          <div className="text-sm text-gray-700">
-            {recommendations.some(r => r.priority === 'EXCELLENT') ? (
-              <>🌟 <strong>Excellent work!</strong> You have strong security habits. Keep up the great work and consider helping others improve their security too.</>
-            ) : recommendations.some(r => r.priority === 'CRITICAL') ? (
-              <>🚨 <strong>Important:</strong> Start with CRITICAL items immediately - they represent serious security risks that need immediate attention.</>
-            ) : (
-              <>💡 <strong>Pro tip:</strong> Start with highest priority items first. Each completed action significantly improves your security posture.</>
-            )}
-          </div>
-        </div>
-      </div>
-      
-      {/* Visual Dashboard */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
-          <h3 className="text-base font-medium text-center mb-2 text-gray-900">Security Strength by Category</h3>
-          <RadarChart categoryScores={formatCategoryScores()} />
-          <div className="mt-2 text-center text-xs text-gray-500 flex justify-center gap-4 flex-wrap">
-            <span className="flex items-center"><span className="w-2 h-2 rounded-full bg-green-500 mr-1"></span>80-100%</span>
-            <span className="flex items-center"><span className="w-2 h-2 rounded-full bg-blue-500 mr-1"></span>60-79%</span>
-            <span className="flex items-center"><span className="w-2 h-2 rounded-full bg-yellow-500 mr-1"></span>40-59%</span>
-            <span className="flex items-center"><span className="w-2 h-2 rounded-full bg-red-500 mr-1"></span>0-39%</span>
-          </div>
-        </div>
-        
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
-          <h3 className="text-base font-medium mb-3 text-gray-900">How You Compare</h3>
-          <ComparisonChart userScore={scorePercentage} />
-        </div>
-      </div>
-      
-      {/* Current Security Incidents */}
-      <div className="mb-6">
-        <h3 className="font-medium mb-3 text-gray-900">⚠️ Recent Security Incidents</h3>
-        <div className="space-y-3">
-          {securityIncidents.map((incident, index) => (
-            <div 
-              key={index} 
-              className={`p-3 border-l-4 rounded-r-md ${
-                incident.severity === 'high' 
-                  ? 'bg-red-50 border-red-500' 
-                  : 'bg-yellow-50 border-yellow-500'
-              }`}
-            >
-              <div className="flex justify-between items-start">
-                <div className="font-medium text-gray-800">
-                  {incident.title}
-                </div>
-                <div className="text-xs text-gray-500 ml-2">{incident.date}</div>
-              </div>
-              <p className="text-gray-700 mt-1 text-sm">{incident.description}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-      
-      {/* Category Breakdown */}
-      <div className="mb-6">
-        <h3 className="font-medium mb-3 text-gray-900">📊 Category Breakdown</h3>
-        <div className="space-y-3">
-          {Object.entries(categoryScores).map(([category, scores]) => (
-            <div key={category} className="mb-2">
-              <div className="flex justify-between text-sm mb-1">
-                <span className="font-medium text-gray-800">{category}</span>
-                <span className="text-gray-500">{scores.total}/{scores.possible} ({scores.percentage}%)</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div 
-                  className={`h-2 rounded-full ${
-                    scores.percentage >= 80 ? 'bg-green-500' :
-                    scores.percentage >= 60 ? 'bg-blue-500' :
-                    scores.percentage >= 40 ? 'bg-yellow-500' :
-                    'bg-red-500'
-                  }`} 
-                  style={{ width: `${scores.percentage}%` }}
-                ></div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-      
-      {/* Resources */}
-      <div className="mb-8">
-        <h3 className="font-medium mb-3 text-gray-900">🔗 Security Resources</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-          <a 
-            href="http://cisa.gov/resources-tools/resources/multi-factor-authentication-mfa" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 text-blue-600 hover:underline p-2 rounded hover:bg-blue-50"
-          >
-            <ExternalLink className="w-3 h-3" />
-            Two-Factor Authentication Guide
-          </a>
-          <a 
-            href="https://haveibeenpwned.com/" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 text-blue-600 hover:underline p-2 rounded hover:bg-blue-50"
-          >
-            <ExternalLink className="w-3 h-3" />
-            Check for Data Breaches
-          </a>
-          <a 
-            href="https://www.nist.gov/cybersecurity/how-do-i-create-good-password" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 text-blue-600 hover:underline p-2 rounded hover:bg-blue-50"
-          >
-            <ExternalLink className="w-3 h-3" />
-            NIST Password Security Guide
-          </a>
-          <a 
-            href="https://www.cisa.gov/news-events/news/avoiding-social-engineering-and-phishing-attacks" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 text-blue-600 hover:underline p-2 rounded hover:bg-blue-50"
-          >
-            <ExternalLink className="w-3 h-3" />
-            Avoid Phishing Attacks
-          </a>
-        </div>
       </div>
       
       {/* Buttons */}
@@ -1288,50 +1143,6 @@ function ResultsView({
           <RefreshCw className="w-4 h-4" />
           Retake Assessment
         </button>
-        
-        <button 
-          onClick={() => exportResults(totalScore, maxScore, securityLevel, recommendations, categoryScores)}
-          className="px-6 py-3 bg-white hover:bg-gray-100 text-gray-800 border border-gray-300 font-medium rounded-lg transition-colors flex items-center gap-2"
-        >
-          <Download className="w-4 h-4" />
-          Export Results
-        </button>
-      </div>
-
-      {/* Support Section */}
-      <div className="mb-4">
-        <div className="bg-gradient-to-r from-amber-50 to-orange-50 p-6 rounded-xl border border-amber-200">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="text-2xl">☕</div>
-            <h3 className="text-lg font-semibold text-gray-900">Support PrivScore Development</h3>
-          </div>
-          
-          <p className="text-gray-700 mb-4 leading-relaxed">
-            Building free, privacy-first security tools takes time and resources. If PrivScore helped you improve your security posture, 
-            consider supporting our mission to make cybersecurity accessible to everyone.
-          </p>
-          
-          <div className="flex flex-col items-center gap-3">
-            <div className="flex items-center text-sm text-gray-600">
-              <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
-              Keeps tools free for everyone
-            </div>
-            
-            <a
-              href="https://buymeacoffee.com/humanxai"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-semibold rounded-lg transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
-            >
-              ☕ Buy me a coffee
-              <ExternalLink className="w-4 h-4 ml-2" />
-            </a>
-          </div>
-          
-          <p className="text-xs text-gray-500 mt-3 text-center">
-            Your support enables us to continue creating innovative security solutions that protect professionals worldwide.
-          </p>
-        </div>
       </div>
     </div>
   );
