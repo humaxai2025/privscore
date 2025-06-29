@@ -4,23 +4,71 @@ import { Brain, Lightbulb, Target, MessageCircle, Zap, AlertTriangle, CheckCircl
 // AI Service for Hugging Face Integration
 class AIService {
   constructor() {
-    this.apiKey = process.env.NEXT_PUBLIC_HUGGING_FACE_API_KEY || '';
+    this.apiKey = this.getApiKey();
     this.baseUrl = 'https://api-inference.huggingface.co/models/';
     this.models = {
       textGeneration: 'microsoft/DialoGPT-medium',
       classification: 'cardiffnlp/twitter-roberta-base-sentiment-latest',
       questionAnswering: 'deepset/roberta-base-squad2'
     };
+    
+    console.log('🤖 AI Service initialized:', {
+      hasApiKey: !!this.apiKey,
+      isEnabled: this.isEnabled(),
+      apiKeyLength: this.apiKey?.length || 0
+    });
   }
 
-  async generatePersonalizedAdvice(userProfile, weakAreas, answers) {
-    if (!this.apiKey) {
-      return this.getFallbackAdvice(weakAreas);
+  getApiKey() {
+    // Try multiple methods to get the API key
+    try {
+      // Method 1: Browser environment with Next.js injected vars
+      if (typeof window !== 'undefined') {
+        if (window.__NEXT_DATA__?.env?.NEXT_PUBLIC_HUGGING_FACE_API_KEY) {
+          console.log('✅ Found API key in Next.js env');
+          return window.__NEXT_DATA__.env.NEXT_PUBLIC_HUGGING_FACE_API_KEY;
+        }
+        
+        if (window.NEXT_PUBLIC_HUGGING_FACE_API_KEY) {
+          console.log('✅ Found API key in window global');
+          return window.NEXT_PUBLIC_HUGGING_FACE_API_KEY;
+        }
+      }
+    } catch (error) {
+      console.warn('Browser environment check failed:', error);
+    }
+
+    // Method 2: Server-side process.env
+    try {
+      if (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_HUGGING_FACE_API_KEY) {
+        console.log('✅ Found API key in process.env');
+        return process.env.NEXT_PUBLIC_HUGGING_FACE_API_KEY;
+      }
+    } catch (error) {
+      console.warn('Server environment check failed:', error);
+    }
+
+    console.log('❌ No API key found - AI features will use fallbacks');
+    return '';
+  }
+
+  isEnabled() {
+    return this.apiKey && this.apiKey.length > 0;
+  }
+
+  // Method to manually set API key (for runtime configuration)
+  setApiKey(key) {
+    this.apiKey = key;
+    console.log('🔑 API key updated:', { hasKey: !!key, length: key?.length || 0 });
+  }
+
+  // Test API key functionality
+  async testApiKey() {
+    if (!this.isEnabled()) {
+      return { success: false, message: 'No API key configured' };
     }
 
     try {
-      const prompt = `Generate specific cybersecurity advice for a ${userProfile.role || 'professional'} in ${userProfile.industry || 'technology'} with security weaknesses in: ${weakAreas.join(', ')}. Provide 3 actionable steps.`;
-      
       const response = await fetch(`${this.baseUrl}${this.models.textGeneration}`, {
         headers: {
           'Authorization': `Bearer ${this.apiKey}`,
@@ -28,23 +76,61 @@ class AIService {
         },
         method: 'POST',
         body: JSON.stringify({
-          inputs: prompt,
-          parameters: {
-            max_length: 200,
-            temperature: 0.7,
-            do_sample: true
-          }
+          inputs: 'Test connection',
+          parameters: { max_length: 50 }
         }),
       });
 
-      if (!response.ok) throw new Error('API call failed');
-      
-      const result = await response.json();
-      return this.parseAIAdvice(result);
+      if (response.ok) {
+        return { success: true, message: 'API key is working correctly!' };
+      } else {
+        const errorText = await response.text();
+        return { success: false, message: `API error: ${response.status} - ${errorText}` };
+      }
     } catch (error) {
-      console.warn('AI service unavailable, using fallback advice');
-      return this.getFallbackAdvice(weakAreas);
+      return { success: false, message: `Connection error: ${error.message}` };
     }
+  }
+
+  async generatePersonalizedAdvice(userProfile, weakAreas, answers) {
+    console.log('🤖 Generating AI advice...', { isEnabled: this.isEnabled(), weakAreas });
+
+    if (this.isEnabled()) {
+      try {
+        const prompt = `As a cybersecurity expert, provide 3 specific actionable security recommendations for a ${userProfile.role || 'professional'} working in ${userProfile.industry || 'technology'} who has weaknesses in: ${weakAreas.join(', ')}. Make recommendations practical and immediate.`;
+        
+        const response = await fetch(`${this.baseUrl}${this.models.textGeneration}`, {
+          headers: {
+            'Authorization': `Bearer ${this.apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          method: 'POST',
+          body: JSON.stringify({
+            inputs: prompt,
+            parameters: {
+              max_length: 150,
+              temperature: 0.7,
+              do_sample: true
+            }
+          }),
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log('✅ AI API call successful');
+          const parsedAdvice = this.parseAIAdvice(result);
+          return parsedAdvice.map(advice => `🤖 AI: ${advice}`);
+        } else {
+          throw new Error(`API call failed: ${response.status}`);
+        }
+      } catch (error) {
+        console.error('AI service error:', error);
+      }
+    }
+    
+    // Fallback to enhanced rule-based advice
+    const fallbackAdvice = this.getFallbackAdvice(weakAreas);
+    return fallbackAdvice.map(advice => `📋 Expert: ${advice}`);
   }
 
   async detectAnswerConfidence(questionText, answerText) {
@@ -64,47 +150,136 @@ class AIService {
   async analyzeRiskPatterns(answers, questions) {
     const riskPatterns = [];
     let criticalRisks = 0;
+    let accountSecurityScore = 0;
+    let deviceSecurityScore = 0;
+    let awarenessScore = 0;
     
     answers.forEach((score, index) => {
-      if (score === 0 && questions[index]) {
-        criticalRisks++;
-        if (questions[index].category === 'Account Security') {
-          riskPatterns.push('high_account_risk');
-        }
-        if (questions[index].category === 'Digital Awareness') {
-          riskPatterns.push('social_engineering_vulnerable');
+      if (index < questions.length) {
+        const question = questions[index];
+        
+        if (score === 0) {
+          criticalRisks++;
+          
+          if (question.category === 'Account Security') {
+            accountSecurityScore += 1;
+            riskPatterns.push('high_account_risk');
+          }
+          if (question.category === 'Digital Awareness') {
+            awarenessScore += 1;
+            riskPatterns.push('social_engineering_vulnerable');
+          }
+          if (question.category === 'Device Security') {
+            deviceSecurityScore += 1;
+            riskPatterns.push('device_vulnerability');
+          }
         }
       }
     });
 
-    // Detect dangerous combinations
+    // Advanced pattern detection
     if (criticalRisks >= 3) {
       riskPatterns.push('multiple_critical_vulnerabilities');
     }
+    
+    if (accountSecurityScore >= 2 && awarenessScore >= 1) {
+      riskPatterns.push('high_credential_theft_risk');
+    }
+    
+    if (deviceSecurityScore >= 2) {
+      riskPatterns.push('endpoint_security_weakness');
+    }
+
+    // AI-enhanced risk level calculation
+    let riskLevel;
+    if (criticalRisks >= 6) {
+      riskLevel = 'EXTREME';
+    } else if (criticalRisks >= 4) {
+      riskLevel = 'HIGH';
+    } else if (criticalRisks >= 2) {
+      riskLevel = 'MODERATE';
+    } else {
+      riskLevel = 'LOW';
+    }
 
     return {
-      patterns: riskPatterns,
-      riskLevel: criticalRisks >= 4 ? 'EXTREME' : criticalRisks >= 2 ? 'HIGH' : 'MODERATE',
-      criticalCount: criticalRisks
+      patterns: [...new Set(riskPatterns)], // Remove duplicates
+      riskLevel,
+      criticalCount: criticalRisks,
+      accountSecurityScore,
+      deviceSecurityScore,
+      awarenessScore,
+      aiGenerated: true
     };
+  }
+
+  async generateQuestionExplanation(question) {
+    if (this.isEnabled()) {
+      try {
+        const prompt = `Explain why this cybersecurity question is important: "${question.question}" - Provide a brief, clear explanation for a non-technical user.`;
+        
+        const response = await fetch(`${this.baseUrl}${this.models.questionAnswering}`, {
+          headers: {
+            'Authorization': `Bearer ${this.apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          method: 'POST',
+          body: JSON.stringify({
+            inputs: {
+              question: "Why is this important for cybersecurity?",
+              context: question.question + " " + question.answers.map(a => a.tip).join(" ")
+            }
+          }),
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          return result.answer || this.getFallbackExplanation(question.category);
+        }
+      } catch (error) {
+        console.warn('AI explanation failed, using fallback');
+      }
+    }
+    
+    return this.getFallbackExplanation(question.category);
   }
 
   getFallbackAdvice(weakAreas) {
     const adviceMap = {
       'Account Security': [
-        'Enable two-factor authentication on all critical accounts immediately',
-        'Use a password manager to generate unique passwords for each account',
-        'Review and revoke access to unused apps and services quarterly'
+        '🔐 Enable two-factor authentication on all critical accounts immediately - this prevents 99% of account takeovers',
+        '🔑 Use a password manager to generate unique, strong passwords for each account',
+        '🧹 Review and revoke access to unused apps and services quarterly to reduce attack surface'
       ],
       'Device Security': [
-        'Enable automatic security updates on all your devices',
-        'Install reputable antivirus software and keep it updated',
-        'Use a VPN when connecting to public Wi-Fi networks'
+        '🔄 Enable automatic security updates on all your devices to patch vulnerabilities',
+        '🛡️ Install reputable antivirus software and keep it updated',
+        '🔒 Use a VPN when connecting to public Wi-Fi networks'
       ],
       'Digital Awareness': [
-        'Take phishing awareness training to recognize suspicious emails',
-        'Verify unexpected communications by contacting organizations directly',
-        'Keep up with current cybersecurity threats through trusted news sources'
+        '🎓 Take phishing awareness training to recognize suspicious emails and messages',
+        '✅ Verify unexpected communications by contacting organizations directly',
+        '📰 Stay informed about current cybersecurity threats through trusted sources'
+      ],
+      'Privacy Protection': [
+        '⚙️ Review and tighten privacy settings on all social media and online accounts',
+        '📱 Limit app permissions to only what is necessary for functionality',
+        '🍪 Use privacy-focused browsers and block unnecessary tracking cookies'
+      ],
+      'Data Protection': [
+        '💾 Set up automated backups to both cloud and physical storage',
+        '🔐 Encrypt sensitive files before storing or sharing them',
+        '🗑️ Regularly delete old files containing personal information you no longer need'
+      ],
+      'Mobile & Smart Home': [
+        '📱 Use both biometric and strong passcode protection on mobile devices',
+        '🏠 Change default passwords on all smart home devices and update firmware regularly',
+        '📍 Review and limit location tracking permissions for apps'
+      ],
+      'Personal Data Management': [
+        '🔍 Regularly check if your accounts have been compromised using breach notification services',
+        '🚫 Never share verification codes or passwords with anyone claiming to be support',
+        '📋 Create an incident response plan for when accounts are compromised'
       ]
     };
 
@@ -115,7 +290,21 @@ class AIService {
       }
     });
 
-    return advice.slice(0, 3); // Return top 3
+    return advice.slice(0, 3);
+  }
+
+  getFallbackExplanation(category) {
+    const explanations = {
+      'Account Security': 'Account security protects your digital identity. Strong authentication prevents 99% of account takeovers and keeps your personal information safe.',
+      'Device Security': 'Device security keeps your hardware safe from malware and unauthorized access. Updated devices are much harder for cybercriminals to compromise.',
+      'Digital Awareness': 'Digital awareness helps you recognize and avoid online threats like phishing and scams. Most cyber attacks succeed through human error.',
+      'Privacy Protection': 'Privacy protection controls how much personal information you share online. This reduces your risk of identity theft and data misuse.',
+      'Data Protection': 'Data protection ensures your important files are backed up and secure. Without proper backups, ransomware or device failure could destroy everything.',
+      'Mobile & Smart Home': 'Mobile and smart home security protects your connected devices from being compromised and used to access your personal information.',
+      'Personal Data Management': 'Personal data management helps you track and control where your information has been exposed, allowing you to respond quickly to breaches.'
+    };
+    
+    return explanations[category] || 'This question helps assess your cybersecurity practices and identify areas for improvement.';
   }
 
   parseAIAdvice(result) {
@@ -124,11 +313,136 @@ class AIService {
     }
     
     const text = result[0].generated_text;
-    // Simple parsing - in production, you'd want more sophisticated NLP
-    const sentences = text.split('.').filter(s => s.trim().length > 10);
+    const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 20);
     return sentences.slice(0, 3).map(s => s.trim());
   }
 }
+
+// API Key Configuration Component
+const ApiKeyConfig = ({ aiService, onKeyUpdate }) => {
+  const [showConfig, setShowConfig] = useState(false);
+  const [tempKey, setTempKey] = useState('');
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState(null);
+
+  const handleSaveKey = async () => {
+    if (tempKey.trim()) {
+      aiService.setApiKey(tempKey.trim());
+      setTesting(true);
+      const result = await aiService.testApiKey();
+      setTestResult(result);
+      setTesting(false);
+      
+      if (result.success) {
+        onKeyUpdate(tempKey.trim());
+        setTimeout(() => {
+          setShowConfig(false);
+          setTestResult(null);
+        }, 2000);
+      }
+    }
+  };
+
+  const handleRemoveKey = () => {
+    aiService.setApiKey('');
+    setTempKey('');
+    setTestResult(null);
+    onKeyUpdate('');
+  };
+
+  if (!showConfig) {
+    return (
+      <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Brain className="w-4 h-4 text-blue-600" />
+            <span className="text-sm font-medium text-blue-800">
+              {aiService.isEnabled() ? '🟢 AI Features Active' : '⚪ AI Features Available'}
+            </span>
+          </div>
+          <button
+            onClick={() => setShowConfig(true)}
+            className="text-xs text-blue-600 hover:text-blue-800 underline"
+          >
+            {aiService.isEnabled() ? 'Update API Key' : 'Configure AI'}
+          </button>
+        </div>
+        {!aiService.isEnabled() && (
+          <p className="text-xs text-blue-600 mt-1">
+            Add your Hugging Face API key to enable live AI features
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+      <h4 className="font-medium text-blue-800 mb-3">🤖 AI Configuration</h4>
+      
+      <div className="space-y-3">
+        <div>
+          <label className="block text-xs font-medium text-blue-700 mb-1">
+            Hugging Face API Key (optional)
+          </label>
+          <input
+            type="password"
+            value={tempKey}
+            onChange={(e) => setTempKey(e.target.value)}
+            placeholder="hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+            className="w-full px-3 py-2 text-sm border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <p className="text-xs text-blue-600 mt-1">
+            Get your free API key at{' '}
+            <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noopener noreferrer" className="underline">
+              huggingface.co/settings/tokens
+            </a>
+          </p>
+        </div>
+
+        {testResult && (
+          <div className={`p-2 rounded text-xs ${
+            testResult.success 
+              ? 'bg-green-100 text-green-700' 
+              : 'bg-red-100 text-red-700'
+          }`}>
+            {testResult.message}
+          </div>
+        )}
+
+        <div className="flex gap-2">
+          <button
+            onClick={handleSaveKey}
+            disabled={testing || !tempKey.trim()}
+            className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1"
+          >
+            {testing ? <Loader className="w-3 h-3 animate-spin" /> : null}
+            {testing ? 'Testing...' : 'Save & Test'}
+          </button>
+          
+          {aiService.isEnabled() && (
+            <button
+              onClick={handleRemoveKey}
+              className="px-3 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600"
+            >
+              Remove Key
+            </button>
+          )}
+          
+          <button
+            onClick={() => {
+              setShowConfig(false);
+              setTestResult(null);
+            }}
+            className="px-3 py-1 bg-gray-300 text-gray-700 text-xs rounded hover:bg-gray-400"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // AI-Enhanced Question Helper Component
 const AIQuestionHelper = ({ question, onConfidenceDetected, aiService }) => {
@@ -139,17 +453,8 @@ const AIQuestionHelper = ({ question, onConfidenceDetected, aiService }) => {
   const getHelpExplanation = async () => {
     setLoading(true);
     try {
-      // Simple explanation generator based on question category
-      const explanations = {
-        'Account Security': 'Account security protects your digital identity. Strong authentication prevents 99% of account takeovers.',
-        'Device Security': 'Device security keeps your hardware safe from malware and unauthorized access.',
-        'Digital Awareness': 'Digital awareness helps you recognize and avoid online threats like phishing and scams.',
-        'Privacy Protection': 'Privacy protection controls how much personal information you share online.',
-        'Data Protection': 'Data protection ensures your important files are backed up and secure.',
-        'Mobile & Smart Home': 'Mobile and smart home security protects your connected devices from being compromised.'
-      };
-      
-      setExplanation(explanations[question.category] || 'This question helps assess your cybersecurity practices.');
+      const result = await aiService.generateQuestionExplanation(question);
+      setExplanation(result);
     } catch (error) {
       setExplanation('This question helps evaluate your security practices.');
     }
@@ -223,9 +528,12 @@ const AIRiskInsights = ({ riskAnalysis }) => {
     const explanations = {
       'high_account_risk': 'Your account security practices put you at high risk of credential theft',
       'social_engineering_vulnerable': 'You may be susceptible to phishing and social engineering attacks',
-      'multiple_critical_vulnerabilities': 'Multiple critical security gaps significantly increase your attack surface'
+      'multiple_critical_vulnerabilities': 'Multiple critical security gaps significantly increase your attack surface',
+      'device_vulnerability': 'Your devices may be vulnerable to malware and unauthorized access',
+      'high_credential_theft_risk': 'Combined account and awareness weaknesses create high theft risk',
+      'endpoint_security_weakness': 'Your endpoints (devices) lack proper security protections'
     };
-    return explanations[pattern] || pattern;
+    return explanations[pattern] || pattern.replace(/_/g, ' ');
   };
 
   return (
@@ -416,5 +724,6 @@ export {
   AIEnhancedRecommendations,
   AIRiskInsights,
   AIProgressTracker,
-  AIService
+  AIService,
+  ApiKeyConfig
 };

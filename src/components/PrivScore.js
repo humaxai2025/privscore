@@ -6,12 +6,6 @@ import { Shield, Lock, Award, CheckCircle, AlertCircle, Info, RefreshCw, Trendin
 // Enhanced AI Service with proper API integration
 class AIService {
   constructor() {
-    // Debug environment variable access
-    console.log('🔍 Environment Debug Info:');
-    console.log('- typeof window:', typeof window);
-    console.log('- typeof process:', typeof process);
-    
-    // Try all possible ways to get the API key
     this.apiKey = this.getApiKey();
     this.baseUrl = 'https://api-inference.huggingface.co/models/';
     this.enabled = true;
@@ -21,161 +15,56 @@ class AIService {
       questionAnswering: 'deepset/roberta-base-squad2'
     };
     
-    // Comprehensive debug logging
-    console.log('🤖 AI Service Debug Report:');
-    console.log('- API Key found:', !!this.apiKey);
-    console.log('- API Key length:', this.apiKey?.length || 0);
-    console.log('- API Key preview:', this.apiKey ? `${this.apiKey.substring(0, 8)}...` : 'NONE');
-    console.log('- Is Enabled:', this.isEnabled());
-    console.log('- Environment check complete');
+    console.log('🤖 AI Service initialized:', {
+      hasApiKey: !!this.apiKey,
+      isEnabled: this.isEnabled(),
+      apiKeyLength: this.apiKey?.length || 0
+    });
   }
 
   getApiKey() {
-    console.log('🔑 Checking for API key in multiple locations...');
-    
-    // Method 1: Direct environment access (most reliable for Next.js)
+    // Try multiple methods to get the API key
     try {
-      // Check if we're in browser and have access to injected env vars
+      // Method 1: Direct environment access (most reliable for Next.js)
       if (typeof window !== 'undefined') {
-        console.log('🌐 Browser environment detected');
-        
         // Check Next.js injected environment variables
-        if (window.__NEXT_DATA__?.env) {
-          console.log('📦 Next.js env object found:', Object.keys(window.__NEXT_DATA__.env));
-          const key = window.__NEXT_DATA__.env.NEXT_PUBLIC_HUGGING_FACE_API_KEY;
-          if (key) {
-            console.log('✅ Found API key in Next.js env');
-            return key;
-          }
+        if (window.__NEXT_DATA__?.env?.NEXT_PUBLIC_HUGGING_FACE_API_KEY) {
+          return window.__NEXT_DATA__.env.NEXT_PUBLIC_HUGGING_FACE_API_KEY;
         }
         
-        // Check for manually set global variable (for testing)
+        // Check for manually set global variable
         if (window.NEXT_PUBLIC_HUGGING_FACE_API_KEY) {
-          console.log('✅ Found API key in window global');
           return window.NEXT_PUBLIC_HUGGING_FACE_API_KEY;
         }
-        
-        console.log('❌ No API key found in browser environment');
       }
     } catch (error) {
-      console.warn('⚠️ Browser environment check failed:', error);
+      console.warn('Browser environment check failed:', error);
     }
 
-    // Method 2: Server-side process.env (for SSR)
+    // Method 2: Server-side process.env
     try {
-      if (typeof process !== 'undefined' && process.env) {
-        console.log('🖥️ Server environment detected');
-        const key = process.env.NEXT_PUBLIC_HUGGING_FACE_API_KEY;
-        if (key) {
-          console.log('✅ Found API key in process.env');
-          return key;
-        }
-        console.log('❌ No API key found in process.env');
-        console.log('📋 Available env vars:', Object.keys(process.env).filter(k => k.startsWith('NEXT_PUBLIC')));
+      if (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_HUGGING_FACE_API_KEY) {
+        return process.env.NEXT_PUBLIC_HUGGING_FACE_API_KEY;
       }
     } catch (error) {
-      console.warn('⚠️ Server environment check failed:', error);
+      console.warn('Server environment check failed:', error);
     }
 
-    // Method 3: Check for common environment variable names
-    const possibleNames = [
-      'NEXT_PUBLIC_HUGGING_FACE_API_KEY',
-      'HUGGING_FACE_API_KEY',
-      'HF_API_KEY',
-      'REACT_APP_HUGGING_FACE_API_KEY'
-    ];
-
-    for (const name of possibleNames) {
-      try {
-        if (typeof process !== 'undefined' && process.env && process.env[name]) {
-          console.log(`✅ Found API key with name: ${name}`);
-          return process.env[name];
-        }
-      } catch (error) {
-        // Continue checking other names
-      }
-    }
-
-    console.log('❌ API key not found in any location');
-    console.log('💡 To fix this:');
-    console.log('  1. Ensure you have NEXT_PUBLIC_HUGGING_FACE_API_KEY in Vercel');
-    console.log('  2. Redeploy your app after adding the env var');
-    console.log('  3. Check the env var is spelled correctly');
-    
+    console.log('No API key found - AI features will use fallbacks');
     return '';
   }
 
   isEnabled() {
-    const enabled = this.enabled && this.apiKey && this.apiKey.length > 0;
-    console.log('🔋 AI Service Status:', {
-      enabled: this.enabled,
-      hasApiKey: !!this.apiKey,
-      keyLength: this.apiKey?.length || 0,
-      finalEnabled: enabled
-    });
-    return enabled;
-  }
-
-  // Add a method to manually test environment variable access
-  debugEnvironment() {
-    console.log('🔍 FULL ENVIRONMENT DEBUG:');
-    
-    // Check all possible locations
-    const locations = [];
-    
-    try {
-      if (typeof window !== 'undefined') {
-        locations.push({
-          location: 'window.__NEXT_DATA__.env',
-          available: !!window.__NEXT_DATA__?.env,
-          keys: window.__NEXT_DATA__?.env ? Object.keys(window.__NEXT_DATA__.env) : []
-        });
-        
-        locations.push({
-          location: 'window.NEXT_PUBLIC_HUGGING_FACE_API_KEY',
-          available: !!window.NEXT_PUBLIC_HUGGING_FACE_API_KEY,
-          value: window.NEXT_PUBLIC_HUGGING_FACE_API_KEY ? 'SET' : 'NOT SET'
-        });
-      }
-    } catch (e) {
-      locations.push({ location: 'window', error: e.message });
-    }
-    
-    try {
-      if (typeof process !== 'undefined' && process.env) {
-        const envKeys = Object.keys(process.env).filter(k => k.includes('HUGGING') || k.startsWith('NEXT_PUBLIC'));
-        locations.push({
-          location: 'process.env',
-          available: true,
-          relevantKeys: envKeys
-        });
-      }
-    } catch (e) {
-      locations.push({ location: 'process.env', error: e.message });
-    }
-    
-    console.table(locations);
-    return locations;
+    return this.enabled && this.apiKey && this.apiKey.length > 0;
   }
 
   async generatePersonalizedAdvice(userProfile, weakAreas, answers) {
-    console.log('🤖 Starting AI advice generation...');
-    console.log('📊 AI Service Status:', {
-      hasApiKey: !!this.apiKey,
-      isEnabled: this.isEnabled(),
-      apiKeyLength: this.apiKey?.length || 0,
-      weakAreas: weakAreas
-    });
+    console.log('🤖 Generating AI advice...', { isEnabled: this.isEnabled(), weakAreas });
 
-    // Always try AI first if available
     if (this.isEnabled()) {
       try {
-        console.log('🚀 CALLING HUGGING FACE API...');
-        
         const prompt = `As a cybersecurity expert, provide 3 specific actionable security recommendations for a ${userProfile.role || 'professional'} working in ${userProfile.industry || 'technology'} who has weaknesses in: ${weakAreas.join(', ')}. Make recommendations practical and immediate.`;
         
-        console.log('📝 Sending prompt to AI:', prompt);
-
         const response = await fetch(`${this.baseUrl}${this.models.textGeneration}`, {
           headers: {
             'Authorization': `Bearer ${this.apiKey}`,
@@ -192,56 +81,31 @@ class AIService {
           }),
         });
 
-        console.log('📡 API Response Status:', response.status, response.statusText);
-
         if (response.ok) {
           const result = await response.json();
-          console.log('✅ AI API CALL SUCCESSFUL!');
-          console.log('🤖 Raw AI Response:', result);
-          
+          console.log('✅ AI API call successful');
           const parsedAdvice = this.parseAIAdvice(result);
-          console.log('✨ Parsed AI Advice:', parsedAdvice);
-          
-          // Mark as truly AI-generated
           return parsedAdvice.map(advice => `🤖 AI: ${advice}`);
         } else {
-          const errorText = await response.text();
-          console.error('❌ AI API CALL FAILED:', {
-            status: response.status,
-            statusText: response.statusText,
-            error: errorText
-          });
-          throw new Error(`API call failed: ${response.status} ${response.statusText}`);
+          throw new Error(`API call failed: ${response.status}`);
         }
       } catch (error) {
-        console.error('💥 AI SERVICE ERROR:', error);
-        console.log('🔄 Falling back to rule-based advice...');
+        console.error('AI service error:', error);
       }
-    } else {
-      console.log('⚠️ AI NOT ENABLED - using fallbacks');
-      console.log('🔍 Reasons AI disabled:', {
-        hasApiKey: !!this.apiKey,
-        enabled: this.enabled,
-        isEnabledCheck: this.isEnabled()
-      });
     }
     
     // Fallback to enhanced rule-based advice
-    console.log('📋 USING FALLBACK ADVICE (Not AI-generated)');
     const fallbackAdvice = this.getFallbackAdvice(weakAreas);
-    return fallbackAdvice.map(advice => `📋 Rule-based: ${advice}`);
+    return fallbackAdvice.map(advice => `📋 Expert: ${advice}`);
   }
 
   async analyzeRiskPatterns(answers, questions) {
-    console.log('🤖 Analyzing risk patterns with AI...');
-    
     const riskPatterns = [];
     let criticalRisks = 0;
     let accountSecurityScore = 0;
     let deviceSecurityScore = 0;
     let awarenessScore = 0;
     
-    // Analyze answers for patterns
     answers.forEach((score, index) => {
       if (index < questions.length) {
         const question = questions[index];
@@ -249,7 +113,6 @@ class AIService {
         if (score === 0) {
           criticalRisks++;
           
-          // Detect specific risk patterns
           if (question.category === 'Account Security') {
             accountSecurityScore += 1;
             riskPatterns.push('high_account_risk');
@@ -266,7 +129,6 @@ class AIService {
       }
     });
 
-    // Advanced pattern detection
     if (criticalRisks >= 3) {
       riskPatterns.push('multiple_critical_vulnerabilities');
     }
@@ -279,7 +141,6 @@ class AIService {
       riskPatterns.push('endpoint_security_weakness');
     }
 
-    // AI-enhanced risk level calculation
     let riskLevel;
     if (criticalRisks >= 6) {
       riskLevel = 'EXTREME';
@@ -291,8 +152,8 @@ class AIService {
       riskLevel = 'LOW';
     }
 
-    const analysis = {
-      patterns: [...new Set(riskPatterns)], // Remove duplicates
+    return {
+      patterns: [...new Set(riskPatterns)],
       riskLevel,
       criticalCount: criticalRisks,
       accountSecurityScore,
@@ -300,16 +161,11 @@ class AIService {
       awarenessScore,
       aiGenerated: true
     };
-
-    console.log('✅ AI Risk Analysis Complete:', analysis);
-    return analysis;
   }
 
   async generateQuestionExplanation(question) {
     if (this.isEnabled()) {
       try {
-        console.log('🤖 Generating AI explanation for question...');
-        
         const prompt = `Explain why this cybersecurity question is important: "${question.question}" - Provide a brief, clear explanation for a non-technical user.`;
         
         const response = await fetch(`${this.baseUrl}${this.models.questionAnswering}`, {
@@ -328,11 +184,10 @@ class AIService {
 
         if (response.ok) {
           const result = await response.json();
-          console.log('✅ AI explanation generated');
           return result.answer || this.getFallbackExplanation(question.category);
         }
       } catch (error) {
-        console.warn('⚠️ AI explanation failed, using fallback');
+        console.warn('AI explanation failed, using fallback');
       }
     }
     
@@ -413,475 +268,7 @@ class AIService {
   }
 }
 
-// API Key Configuration Component
-const ApiKeyConfig = ({ aiService, onKeyUpdate }) => {
-  const [showConfig, setShowConfig] = useState(false);
-  const [tempKey, setTempKey] = useState('');
-  const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState(null);
-
-  const handleSaveKey = async () => {
-    if (tempKey.trim()) {
-      aiService.setApiKey(tempKey.trim());
-      setTesting(true);
-      const result = await aiService.testApiKey();
-      setTestResult(result);
-      setTesting(false);
-      
-      if (result.success) {
-        onKeyUpdate(tempKey.trim());
-        setTimeout(() => {
-          setShowConfig(false);
-          setTestResult(null);
-        }, 2000);
-      }
-    }
-  };
-
-  const handleRemoveKey = () => {
-    aiService.setApiKey('');
-    setTempKey('');
-    setTestResult(null);
-    onKeyUpdate('');
-  };
-
-  if (!showConfig) {
-    return (
-      <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Brain className="w-4 h-4 text-blue-600" />
-            <span className="text-sm font-medium text-blue-800">
-              {aiService.isEnabled() ? '🟢 AI Features Active' : '⚪ AI Features Available'}
-            </span>
-          </div>
-          <button
-            onClick={() => setShowConfig(true)}
-            className="text-xs text-blue-600 hover:text-blue-800 underline"
-          >
-            {aiService.isEnabled() ? 'Update API Key' : 'Configure AI'}
-          </button>
-        </div>
-        {!aiService.isEnabled() && (
-          <p className="text-xs text-blue-600 mt-1">
-            Add your Hugging Face API key to enable live AI features
-          </p>
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-      <h4 className="font-medium text-blue-800 mb-3">🤖 AI Configuration</h4>
-      
-      <div className="space-y-3">
-        <div>
-          <label className="block text-xs font-medium text-blue-700 mb-1">
-            Hugging Face API Key (optional)
-          </label>
-          <input
-            type="password"
-            value={tempKey}
-            onChange={(e) => setTempKey(e.target.value)}
-            placeholder="hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-            className="w-full px-3 py-2 text-sm border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <p className="text-xs text-blue-600 mt-1">
-            Get your free API key at{' '}
-            <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noopener noreferrer" className="underline">
-              huggingface.co/settings/tokens
-            </a>
-          </p>
-        </div>
-
-        {testResult && (
-          <div className={`p-2 rounded text-xs ${
-            testResult.success 
-              ? 'bg-green-100 text-green-700' 
-              : 'bg-red-100 text-red-700'
-          }`}>
-            {testResult.message}
-          </div>
-        )}
-
-        <div className="flex gap-2">
-          <button
-            onClick={handleSaveKey}
-            disabled={testing || !tempKey.trim()}
-            className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1"
-          >
-            {testing ? <Loader className="w-3 h-3 animate-spin" /> : null}
-            {testing ? 'Testing...' : 'Save & Test'}
-          </button>
-          
-          {aiService.isEnabled() && (
-            <button
-              onClick={handleRemoveKey}
-              className="px-3 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600"
-            >
-              Remove Key
-            </button>
-          )}
-          
-          <button
-            onClick={() => {
-              setShowConfig(false);
-              setTestResult(null);
-            }}
-            className="px-3 py-1 bg-gray-300 text-gray-700 text-xs rounded hover:bg-gray-400"
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-const AIQuestionHelper = ({ question, aiService }) => {
-  const [showHelp, setShowHelp] = useState(false);
-  const [explanation, setExplanation] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const getHelpExplanation = async () => {
-    setLoading(true);
-    try {
-      const result = await aiService.generateQuestionExplanation(question);
-      setExplanation(result);
-    } catch (error) {
-      setExplanation('This question helps evaluate your security practices.');
-    }
-    setLoading(false);
-  };
-
-  if (!showHelp) {
-    return (
-      <button
-        onClick={() => {
-          setShowHelp(true);
-          getHelpExplanation();
-        }}
-        className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1 mt-2"
-      >
-        <Brain className="w-4 h-4" />
-        🤖 Need help with this question?
-      </button>
-    );
-  }
-
-  return (
-    <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-      <div className="flex items-start gap-2">
-        <Lightbulb className="w-4 h-4 text-blue-600 mt-0.5" />
-        <div>
-          <div className="text-sm font-medium text-blue-800">🤖 AI Explanation</div>
-          {loading ? (
-            <div className="flex items-center gap-2 text-blue-600">
-              <Loader className="w-3 h-3 animate-spin" />
-              <span className="text-xs">AI generating explanation...</span>
-            </div>
-          ) : (
-            <div className="text-sm text-blue-700 mt-1">{explanation}</div>
-          )}
-        </div>
-      </div>
-      <button
-        onClick={() => setShowHelp(false)}
-        className="text-xs text-blue-600 hover:text-blue-800 mt-2"
-      >
-        Hide explanation
-      </button>
-    </div>
-  );
-};
-
-// AI Risk Insights Component
-const AIRiskInsights = ({ riskAnalysis }) => {
-  if (!riskAnalysis) return null;
-
-  const getRiskColor = (level) => {
-    switch (level) {
-      case 'EXTREME': return 'text-red-600 bg-red-50 border-red-200';
-      case 'HIGH': return 'text-orange-600 bg-orange-50 border-orange-200';
-      case 'MODERATE': return 'text-yellow-600 bg-yellow-50 border-yellow-200';
-      case 'LOW': return 'text-green-600 bg-green-50 border-green-200';
-      default: return 'text-gray-600 bg-gray-50 border-gray-200';
-    }
-  };
-
-  const getRiskIcon = (level) => {
-    switch (level) {
-      case 'EXTREME': return <AlertCircle className="w-5 h-5" />;
-      case 'HIGH': return <AlertCircle className="w-5 h-5" />;
-      case 'MODERATE': return <Target className="w-5 h-5" />;
-      case 'LOW': return <CheckCircle className="w-5 h-5" />;
-      default: return <Info className="w-5 h-5" />;
-    }
-  };
-
-  const getPatternExplanation = (pattern) => {
-    const explanations = {
-      'high_account_risk': 'Your account security practices put you at high risk of credential theft',
-      'social_engineering_vulnerable': 'You may be susceptible to phishing and social engineering attacks',
-      'multiple_critical_vulnerabilities': 'Multiple critical security gaps significantly increase your attack surface',
-      'device_vulnerability': 'Your devices may be vulnerable to malware and unauthorized access',
-      'high_credential_theft_risk': 'Combined account and awareness weaknesses create high theft risk',
-      'endpoint_security_weakness': 'Your endpoints (devices) lack proper security protections'
-    };
-    return explanations[pattern] || pattern.replace(/_/g, ' ');
-  };
-
-  return (
-    <div className={`p-4 rounded-lg border ${getRiskColor(riskAnalysis.riskLevel)} mb-6`}>
-      <div className="flex items-center gap-2 mb-2">
-        {getRiskIcon(riskAnalysis.riskLevel)}
-        <h3 className="font-semibold">🤖 AI Risk Analysis</h3>
-        {riskAnalysis.aiGenerated && (
-          <span className="text-xs bg-purple-100 text-purple-600 px-2 py-1 rounded">AI Generated</span>
-        )}
-      </div>
-      
-      <div className="text-sm mb-3">
-        <strong>Risk Level:</strong> {riskAnalysis.riskLevel}
-        {riskAnalysis.criticalCount > 0 && (
-          <span className="ml-2">({riskAnalysis.criticalCount} critical vulnerabilities detected)</span>
-        )}
-      </div>
-
-      {riskAnalysis.patterns.length > 0 && (
-        <div>
-          <div className="text-sm font-medium mb-2">🔍 Detected Risk Patterns:</div>
-          <ul className="text-xs space-y-1">
-            {riskAnalysis.patterns.map((pattern, index) => (
-              <li key={index} className="flex items-start gap-2">
-                <span className="text-current">•</span>
-                <span>{getPatternExplanation(pattern)}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// AI-Enhanced Recommendations Component
-const AIEnhancedRecommendations = ({ userProfile, recommendations, answers, questions, aiService }) => {
-  const [aiAdvice, setAiAdvice] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showAIAdvice, setShowAIAdvice] = useState(false);
-  const [isAiGenerated, setIsAiGenerated] = useState(false);
-  const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState(null);
-
-  useEffect(() => {
-    const generateAIAdvice = async () => {
-      console.log('🤖 Generating AI advice...', { recommendations: recommendations?.length });
-      
-      // Always generate advice, even if no specific recommendations
-      const weakAreas = recommendations && recommendations.length > 0 
-        ? recommendations.map(rec => rec.category || 'General Security')
-        : ['Account Security', 'Digital Awareness', 'Data Protection'];
-      
-      try {
-        const advice = await aiService.generatePersonalizedAdvice(userProfile, weakAreas, answers);
-        console.log('🤖 AI advice generated:', advice);
-        
-        // Check if advice contains AI markers
-        const containsAiMarker = advice.some(a => a.includes('🤖 AI:'));
-        const containsRuleMarker = advice.some(a => a.includes('📋 Rule-based:'));
-        
-        setAiAdvice(advice);
-        setIsAiGenerated(containsAiMarker);
-        
-        console.log('🔍 AI Status Check:', {
-          containsAiMarker,
-          containsRuleMarker,
-          isAiEnabled: aiService.isEnabled(),
-          adviceCount: advice.length
-        });
-        
-      } catch (error) {
-        console.error('🤖 AI advice generation failed:', error);
-        // Fallback advice
-        setAiAdvice([
-          '📋 Rule-based: Strengthen account security with two-factor authentication',
-          '📋 Rule-based: Use unique passwords for every account',
-          '📋 Rule-based: Keep software and devices regularly updated'
-        ]);
-        setIsAiGenerated(false);
-      }
-      
-      setLoading(false);
-    };
-
-    generateAIAdvice();
-  }, [recommendations, userProfile, answers, aiService]);
-
-  const testAiConnection = async () => {
-    setTesting(true);
-    setTestResult(null);
-    
-    try {
-      console.log('🧪 Testing AI connection...');
-      
-      const testAdvice = await aiService.generatePersonalizedAdvice(
-        { role: 'tester', industry: 'testing' },
-        ['Account Security'],
-        [0, 0, 0] // Poor scores to trigger advice
-      );
-      
-      const isActuallyAi = testAdvice.some(advice => advice.includes('🤖 AI:'));
-      
-      setTestResult({
-        success: isActuallyAi,
-        message: isActuallyAi 
-          ? '✅ AI is working! Live responses from Hugging Face API'
-          : '⚠️ AI not active - using rule-based fallbacks',
-        advice: testAdvice
-      });
-      
-    } catch (error) {
-      setTestResult({
-        success: false,
-        message: `❌ AI test failed: ${error.message}`,
-        advice: []
-      });
-    }
-    
-    setTesting(false);
-  };
-
-  if (loading) {
-    return (
-      <div className="mb-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
-        <div className="flex items-center gap-2">
-          <Loader className="w-5 h-5 animate-spin text-purple-600" />
-          <span className="text-purple-800 font-medium">🤖 AI analyzing your security profile...</span>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="mb-6">
-      <div className="p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <Brain className="w-5 h-5 text-purple-600" />
-            <h3 className="font-semibold text-gray-900">🤖 AI-Enhanced Security Insights</h3>
-            {isAiGenerated && (
-              <span className="text-xs bg-green-100 text-green-600 px-2 py-1 rounded font-bold">🟢 LIVE AI</span>
-            )}
-            {!isAiGenerated && (
-              <span className="text-xs bg-orange-100 text-orange-600 px-2 py-1 rounded font-bold">📋 FALLBACK</span>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => {
-                console.log('🔍 ENVIRONMENT DEBUG:');
-                aiService.debugEnvironment();
-                alert('Check browser console (F12) for detailed environment debug info!');
-              }}
-              className="text-xs bg-gray-600 text-white px-2 py-1 rounded hover:bg-gray-700"
-            >
-              🔍 Debug
-            </button>
-            <button
-              onClick={testAiConnection}
-              disabled={testing}
-              className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1"
-            >
-              {testing ? <Loader className="w-3 h-3 animate-spin" /> : '🧪'}
-              {testing ? 'Testing...' : 'Test AI'}
-            </button>
-            <button
-              onClick={() => {
-                console.log('🤖 Toggle AI advice:', !showAIAdvice, 'Advice count:', aiAdvice.length);
-                setShowAIAdvice(!showAIAdvice);
-              }}
-              className="text-purple-600 hover:text-purple-800 text-sm flex items-center gap-1 transition-colors"
-            >
-              <Zap className="w-4 h-4" />
-              {showAIAdvice ? 'Hide' : 'Show'} Advice
-            </button>
-          </div>
-        </div>
-
-        {testResult && (
-          <div className={`mb-3 p-2 rounded text-xs ${
-            testResult.success 
-              ? 'bg-green-100 text-green-700 border border-green-200' 
-              : 'bg-red-100 text-red-700 border border-red-200'
-          }`}>
-            <div className="font-bold">{testResult.message}</div>
-            {testResult.advice.length > 0 && (
-              <div className="mt-1 text-xs">
-                Sample: {testResult.advice[0].substring(0, 80)}...
-              </div>
-            )}
-          </div>
-        )}
-
-        {showAIAdvice && (
-          <div className="space-y-2">
-            <div className="text-sm text-purple-700 mb-2 font-medium">
-              {isAiGenerated ? '🤖 Live AI recommendations from Hugging Face:' : '📋 Enhanced rule-based recommendations:'}
-            </div>
-            {aiAdvice.map((advice, index) => (
-              <div key={index} className="flex items-start gap-2 text-sm">
-                <span className="text-purple-600 font-bold">{index + 1}.</span>
-                <span className="text-purple-800">{advice}</span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="mt-3 text-xs text-purple-600">
-          💡 {isAiGenerated ? '🟢 Connected to Hugging Face AI models' : '📋 No AI connection - using smart fallbacks'}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Smart Progress Tracker with AI
-const AIProgressTracker = ({ currentScore, maxScore, riskAnalysis }) => {
-  const percentage = Math.round((currentScore / maxScore) * 100);
-  
-  const getAIInsight = () => {
-    if (percentage >= 90) return "🤖 AI Analysis: Excellent security posture! You're in the top 10% of users.";
-    if (percentage >= 70) return "🤖 AI Analysis: Good security foundation with room for strategic improvements.";
-    if (percentage >= 50) return "🤖 AI Analysis: Moderate security level - focus on critical vulnerabilities first.";
-    return "🤖 AI Analysis: Immediate action needed. Multiple security gaps detected.";
-  };
-
-  return (
-    <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-      <div className="flex items-center gap-2 mb-2">
-        <Target className="w-4 h-4 text-blue-600" />
-        <span className="text-sm font-medium">🤖 AI Security Assessment</span>
-        {riskAnalysis?.aiGenerated && (
-          <span className="text-xs bg-green-100 text-green-600 px-2 py-1 rounded">AI Powered</span>
-        )}
-      </div>
-      <div className="text-xs text-gray-600 mb-2">{getAIInsight()}</div>
-      {riskAnalysis && (
-        <div className="text-xs text-gray-500">
-          Risk Level: <span className={`font-medium ${
-            riskAnalysis.riskLevel === 'EXTREME' ? 'text-red-600' :
-            riskAnalysis.riskLevel === 'HIGH' ? 'text-orange-600' :
-            riskAnalysis.riskLevel === 'MODERATE' ? 'text-yellow-600' :
-            'text-green-600'
-          }`}>{riskAnalysis.riskLevel}</span>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// Complete set of questions for the PrivScore assessment
+// Complete set of security questions
 const securityQuestions = [
   // Account Security
   {
@@ -1107,6 +494,260 @@ const comparisonData = {
   "General Public": 64,
   "Tech Savvy": 78,
   "Security Professionals": 92
+};
+
+// AI Question Helper Component
+const AIQuestionHelper = ({ question, aiService }) => {
+  const [showHelp, setShowHelp] = useState(false);
+  const [explanation, setExplanation] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const getHelpExplanation = async () => {
+    setLoading(true);
+    try {
+      const result = await aiService.generateQuestionExplanation(question);
+      setExplanation(result);
+    } catch (error) {
+      setExplanation('This question helps evaluate your security practices.');
+    }
+    setLoading(false);
+  };
+
+  if (!showHelp) {
+    return (
+      <button
+        onClick={() => {
+          setShowHelp(true);
+          getHelpExplanation();
+        }}
+        className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1 mt-2"
+      >
+        <Brain className="w-4 h-4" />
+        🤖 Need help with this question?
+      </button>
+    );
+  }
+
+  return (
+    <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+      <div className="flex items-start gap-2">
+        <Lightbulb className="w-4 h-4 text-blue-600 mt-0.5" />
+        <div>
+          <div className="text-sm font-medium text-blue-800">🤖 AI Explanation</div>
+          {loading ? (
+            <div className="flex items-center gap-2 text-blue-600">
+              <Loader className="w-3 h-3 animate-spin" />
+              <span className="text-xs">AI generating explanation...</span>
+            </div>
+          ) : (
+            <div className="text-sm text-blue-700 mt-1">{explanation}</div>
+          )}
+        </div>
+      </div>
+      <button
+        onClick={() => setShowHelp(false)}
+        className="text-xs text-blue-600 hover:text-blue-800 mt-2"
+      >
+        Hide explanation
+      </button>
+    </div>
+  );
+};
+
+// AI Risk Insights Component
+const AIRiskInsights = ({ riskAnalysis }) => {
+  if (!riskAnalysis) return null;
+
+  const getRiskColor = (level) => {
+    switch (level) {
+      case 'EXTREME': return 'text-red-600 bg-red-50 border-red-200';
+      case 'HIGH': return 'text-orange-600 bg-orange-50 border-orange-200';
+      case 'MODERATE': return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+      case 'LOW': return 'text-green-600 bg-green-50 border-green-200';
+      default: return 'text-gray-600 bg-gray-50 border-gray-200';
+    }
+  };
+
+  const getRiskIcon = (level) => {
+    switch (level) {
+      case 'EXTREME': return <AlertCircle className="w-5 h-5" />;
+      case 'HIGH': return <AlertCircle className="w-5 h-5" />;
+      case 'MODERATE': return <Target className="w-5 h-5" />;
+      case 'LOW': return <CheckCircle className="w-5 h-5" />;
+      default: return <Info className="w-5 h-5" />;
+    }
+  };
+
+  const getPatternExplanation = (pattern) => {
+    const explanations = {
+      'high_account_risk': 'Your account security practices put you at high risk of credential theft',
+      'social_engineering_vulnerable': 'You may be susceptible to phishing and social engineering attacks',
+      'multiple_critical_vulnerabilities': 'Multiple critical security gaps significantly increase your attack surface',
+      'device_vulnerability': 'Your devices may be vulnerable to malware and unauthorized access',
+      'high_credential_theft_risk': 'Combined account and awareness weaknesses create high theft risk',
+      'endpoint_security_weakness': 'Your endpoints (devices) lack proper security protections'
+    };
+    return explanations[pattern] || pattern.replace(/_/g, ' ');
+  };
+
+  return (
+    <div className={`p-4 rounded-lg border ${getRiskColor(riskAnalysis.riskLevel)} mb-6`}>
+      <div className="flex items-center gap-2 mb-2">
+        {getRiskIcon(riskAnalysis.riskLevel)}
+        <h3 className="font-semibold">🤖 AI Risk Analysis</h3>
+        {riskAnalysis.aiGenerated && (
+          <span className="text-xs bg-purple-100 text-purple-600 px-2 py-1 rounded">AI Generated</span>
+        )}
+      </div>
+      
+      <div className="text-sm mb-3">
+        <strong>Risk Level:</strong> {riskAnalysis.riskLevel}
+        {riskAnalysis.criticalCount > 0 && (
+          <span className="ml-2">({riskAnalysis.criticalCount} critical vulnerabilities detected)</span>
+        )}
+      </div>
+
+      {riskAnalysis.patterns.length > 0 && (
+        <div>
+          <div className="text-sm font-medium mb-2">🔍 Detected Risk Patterns:</div>
+          <ul className="text-xs space-y-1">
+            {riskAnalysis.patterns.map((pattern, index) => (
+              <li key={index} className="flex items-start gap-2">
+                <span className="text-current">•</span>
+                <span>{getPatternExplanation(pattern)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// AI-Enhanced Recommendations Component
+const AIEnhancedRecommendations = ({ userProfile, recommendations, answers, questions, aiService }) => {
+  const [aiAdvice, setAiAdvice] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showAIAdvice, setShowAIAdvice] = useState(false);
+  const [isAiGenerated, setIsAiGenerated] = useState(false);
+
+  useEffect(() => {
+    const generateAIAdvice = async () => {
+      const weakAreas = recommendations && recommendations.length > 0 
+        ? recommendations.map(rec => rec.category || 'General Security')
+        : ['Account Security', 'Digital Awareness', 'Data Protection'];
+      
+      try {
+        const advice = await aiService.generatePersonalizedAdvice(userProfile, weakAreas, answers);
+        const containsAiMarker = advice.some(a => a.includes('🤖 AI:'));
+        
+        setAiAdvice(advice);
+        setIsAiGenerated(containsAiMarker);
+      } catch (error) {
+        console.error('AI advice generation failed:', error);
+        setAiAdvice([
+          '📋 Expert: Strengthen account security with two-factor authentication',
+          '📋 Expert: Use unique passwords for every account',
+          '📋 Expert: Keep software and devices regularly updated'
+        ]);
+        setIsAiGenerated(false);
+      }
+      
+      setLoading(false);
+    };
+
+    generateAIAdvice();
+  }, [recommendations, userProfile, answers, aiService]);
+
+  if (loading) {
+    return (
+      <div className="mb-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
+        <div className="flex items-center gap-2">
+          <Loader className="w-5 h-5 animate-spin text-purple-600" />
+          <span className="text-purple-800 font-medium">🤖 AI analyzing your security profile...</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-6">
+      <div className="p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Brain className="w-5 h-5 text-purple-600" />
+            <h3 className="font-semibold text-gray-900">🤖 AI-Enhanced Security Insights</h3>
+            {isAiGenerated && (
+              <span className="text-xs bg-green-100 text-green-600 px-2 py-1 rounded font-bold">🟢 LIVE AI</span>
+            )}
+            {!isAiGenerated && (
+              <span className="text-xs bg-orange-100 text-orange-600 px-2 py-1 rounded font-bold">📋 EXPERT</span>
+            )}
+          </div>
+          <button
+            onClick={() => setShowAIAdvice(!showAIAdvice)}
+            className="text-purple-600 hover:text-purple-800 text-sm flex items-center gap-1 transition-colors"
+          >
+            <Zap className="w-4 h-4" />
+            {showAIAdvice ? 'Hide' : 'Show'} Advice
+          </button>
+        </div>
+
+        {showAIAdvice && (
+          <div className="space-y-2">
+            <div className="text-sm text-purple-700 mb-2 font-medium">
+              {isAiGenerated ? '🤖 Live AI recommendations:' : '📋 Expert recommendations:'}
+            </div>
+            {aiAdvice.map((advice, index) => (
+              <div key={index} className="flex items-start gap-2 text-sm">
+                <span className="text-purple-600 font-bold">{index + 1}.</span>
+                <span className="text-purple-800">{advice}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-3 text-xs text-purple-600">
+          💡 {isAiGenerated ? '🟢 Powered by Hugging Face AI' : '📋 Expert cybersecurity guidance'}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Smart Progress Tracker with AI
+const AIProgressTracker = ({ currentScore, maxScore, riskAnalysis }) => {
+  const percentage = Math.round((currentScore / maxScore) * 100);
+  
+  const getAIInsight = () => {
+    if (percentage >= 90) return "🤖 AI Analysis: Excellent security posture! You're in the top 10% of users.";
+    if (percentage >= 70) return "🤖 AI Analysis: Good security foundation with room for strategic improvements.";
+    if (percentage >= 50) return "🤖 AI Analysis: Moderate security level - focus on critical vulnerabilities first.";
+    return "🤖 AI Analysis: Immediate action needed. Multiple security gaps detected.";
+  };
+
+  return (
+    <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+      <div className="flex items-center gap-2 mb-2">
+        <Target className="w-4 h-4 text-blue-600" />
+        <span className="text-sm font-medium">🤖 AI Security Assessment</span>
+        {riskAnalysis?.aiGenerated && (
+          <span className="text-xs bg-green-100 text-green-600 px-2 py-1 rounded">AI Powered</span>
+        )}
+      </div>
+      <div className="text-xs text-gray-600 mb-2">{getAIInsight()}</div>
+      {riskAnalysis && (
+        <div className="text-xs text-gray-500">
+          Risk Level: <span className={`font-medium ${
+            riskAnalysis.riskLevel === 'EXTREME' ? 'text-red-600' :
+            riskAnalysis.riskLevel === 'HIGH' ? 'text-orange-600' :
+            riskAnalysis.riskLevel === 'MODERATE' ? 'text-yellow-600' :
+            'text-green-600'
+          }`}>{riskAnalysis.riskLevel}</span>
+        </div>
+      )}
+    </div>
+  );
 };
 
 // Radar chart component
