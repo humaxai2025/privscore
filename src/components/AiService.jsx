@@ -1,4 +1,4 @@
-// Enhanced AI Service with detailed explanations and recommendations
+// Fixed AI Service with working explanations
 class AIService {
   constructor() {
     this.apiKey = this.getApiKey();
@@ -6,24 +6,23 @@ class AIService {
     this.proxyUrl = '/api/ai-proxy';
     this.directUrl = 'https://api-inference.huggingface.co/models/';
     
-    // Working models with better options for detailed responses
+    // ✅ FIXED: Better models for explanations
     this.models = {
       textGeneration: 'microsoft/DialoGPT-small',
-      textGenerationLong: 'gpt2', // Better for longer responses
-      textGenerationBest: 'microsoft/DialoGPT-large',
-      classification: 'cardiffnlp/twitter-roberta-base-sentiment-latest',
+      textGenerationLong: 'gpt2', // Better for longer content
+      explanation: 'facebook/blenderbot-400M-distill', // Better for explanations
+      explanationAlt: 'microsoft/DialoGPT-small', // Backup for explanations
       questionAnswering: 'deepset/roberta-base-squad2'
     };
     
-    console.log('🤖 Enhanced AI Service initialized:', {
+    console.log('🤖 AI Service initialized with explanation models:', {
       hasApiKey: !!this.apiKey,
       useProxy: this.useProxy,
-      isEnabled: this.isEnabled(),
-      primaryModel: this.models.textGeneration
+      explanationModel: this.models.explanation
     });
   }
 
-  // ... [Previous methods: getApiKey, isEnabled, setUseProxy, setApiKey, callAI, etc.] ...
+  // ... [Previous methods: getApiKey, isEnabled, etc.] ...
   
   getApiKey() {
     try {
@@ -69,22 +68,25 @@ class AIService {
     console.log('🔑 API key updated:', { hasKey: !!key, length: key?.length || 0 });
   }
 
+  // ✅ FIXED: Better model selection for different tasks
   getModelsToTry(modelType) {
     switch (modelType) {
+      case 'explanation':
+        return [
+          this.models.explanation,      // BlenderBot for explanations
+          this.models.explanationAlt,   // DialoGPT backup
+          this.models.textGenerationLong // GPT2 final fallback
+        ];
       case 'textGeneration':
         return [
           this.models.textGeneration,
-          this.models.textGenerationLong,
-          this.models.textGenerationBest
+          this.models.textGenerationLong
         ];
       case 'longText':
         return [
-          this.models.textGenerationLong, // gpt2 is better for longer content
-          this.models.textGeneration,
-          this.models.textGenerationBest
+          this.models.textGenerationLong,
+          this.models.textGeneration
         ];
-      case 'classification':
-        return [this.models.classification];
       case 'questionAnswering':
         return [this.models.questionAnswering];
       default:
@@ -98,7 +100,7 @@ class AIService {
     for (let i = 0; i < modelsToTry.length; i++) {
       const model = modelsToTry[i];
       try {
-        console.log(`🔄 Trying model ${i + 1}/${modelsToTry.length}: ${model}`);
+        console.log(`🔄 Trying ${modelType} model ${i + 1}/${modelsToTry.length}: ${model}`);
         
         if (this.useProxy) {
           return await this.callAIProxy(model, inputs, parameters);
@@ -112,7 +114,7 @@ class AIService {
           throw error;
         }
         
-        console.log(`🔄 Trying next model...`);
+        console.log(`🔄 Trying next ${modelType} model...`);
       }
     }
   }
@@ -136,10 +138,6 @@ class AIService {
       if (!response.ok) {
         const errorData = await response.json();
         console.error('❌ Proxy call failed:', errorData);
-        
-        if (errorData.fallback) {
-          throw new Error('AI_FALLBACK_NEEDED');
-        }
         throw new Error(`Proxy error: ${response.status} - ${errorData.error}`);
       }
 
@@ -192,7 +190,171 @@ class AIService {
     }
   }
 
-  // ✅ ENHANCED: More detailed AI advice generation
+  // ✅ FIXED: Much more robust AI explanation generation
+  async generateQuestionExplanation(question) {
+    console.log('🤖 STARTING AI explanation generation for:', question.category);
+    
+    if (!this.isEnabled()) {
+      console.log('📋 AI not enabled, using expert explanation');
+      const expertExplanation = this.getDetailedFallbackExplanation(question.category);
+      return `📋 Expert: ${expertExplanation}`;
+    }
+
+    try {
+      // ✅ IMPROVED: Multiple prompt strategies
+      const prompts = [
+        // Strategy 1: Direct explanation request
+        `Why is this cybersecurity question important: "${question.question}"? Explain in 2-3 sentences why this matters for personal security.`,
+        
+        // Strategy 2: More conversational
+        `Explain to a non-technical person why this security question matters: "${question.question}". What could happen if someone doesn't follow this practice?`,
+        
+        // Strategy 3: Simple format
+        `Question: ${question.question}\nExplanation: This question is important because`
+      ];
+
+      for (let promptIndex = 0; promptIndex < prompts.length; promptIndex++) {
+        const prompt = prompts[promptIndex];
+        console.log(`🔄 Trying explanation prompt ${promptIndex + 1}/${prompts.length}`);
+        
+        try {
+          const result = await this.callAI(
+            'explanation',
+            prompt,
+            { 
+              max_length: 150,
+              temperature: 0.6,
+              do_sample: true,
+              top_p: 0.9,
+              pad_token_id: 50256 // Add padding token
+            }
+          );
+
+          console.log('🔍 Raw AI explanation response:', result);
+          
+          const explanation = this.parseAIExplanation(result, prompt);
+          
+          if (explanation && explanation.length > 50 && explanation.length < 400) {
+            console.log('✅ LIVE AI explanation generated successfully!');
+            console.log('🎯 Final AI explanation:', explanation);
+            return `🤖 AI: ${explanation}`;
+          } else {
+            console.log(`⚠️ AI explanation too short/long (${explanation?.length || 0} chars), trying next prompt...`);
+          }
+          
+        } catch (promptError) {
+          console.warn(`❌ Prompt ${promptIndex + 1} failed:`, promptError.message);
+        }
+      }
+      
+      // If all prompts failed, throw error to trigger fallback
+      throw new Error('All AI explanation prompts failed');
+      
+    } catch (error) {
+      console.error('💥 AI explanation generation completely failed:', error.message);
+      console.log('📋 Using detailed expert fallback explanation');
+      
+      const expertExplanation = this.getDetailedFallbackExplanation(question.category);
+      return `📋 Expert: ${expertExplanation}`;
+    }
+  }
+
+  // ✅ FIXED: Much better explanation parsing
+  parseAIExplanation(result, originalPrompt) {
+    if (!result) {
+      console.log('❌ No AI result to parse');
+      return null;
+    }
+    
+    let text = '';
+    
+    // Handle different response formats
+    if (Array.isArray(result)) {
+      if (result[0]?.generated_text) {
+        text = result[0].generated_text;
+      } else if (result[0]?.text) {
+        text = result[0].text;
+      } else if (typeof result[0] === 'string') {
+        text = result[0];
+      }
+    } else if (result.generated_text) {
+      text = result.generated_text;
+    } else if (result.text) {
+      text = result.text;
+    } else if (typeof result === 'string') {
+      text = result;
+    }
+    
+    if (!text || text.length < 20) {
+      console.log('❌ AI response too short or empty:', text);
+      return null;
+    }
+    
+    console.log('🔍 Parsing AI response text:', text);
+    
+    // ✅ IMPROVED: Better cleaning of AI responses
+    let cleaned = text;
+    
+    // Remove the original prompt if it's echoed back
+    const promptStart = originalPrompt.substring(0, 30);
+    if (cleaned.includes(promptStart)) {
+      cleaned = cleaned.split(promptStart)[1] || cleaned;
+    }
+    
+    // Remove common prompt patterns
+    cleaned = cleaned.replace(/^.*?(?:Why is this|Explain|Question:|important|because|matters?).*?[:?]\s*/i, '');
+    cleaned = cleaned.replace(/^.*?(?:This question is important because|This matters because)\s*/i, '');
+    cleaned = cleaned.replace(/^.*?(?:Explanation:|Answer:)\s*/i, '');
+    
+    // Clean up formatting
+    cleaned = cleaned.replace(/^\s*[-•]\s*/, ''); // Remove bullet points
+    cleaned = cleaned.replace(/^\s*\d+\.\s*/, ''); // Remove numbering
+    cleaned = cleaned.trim();
+    
+    // Get the first 1-2 sentences
+    const sentences = cleaned.split(/[.!?]+/).filter(s => s.trim().length > 15);
+    let explanation = sentences.slice(0, 2).join('. ').trim();
+    
+    // Ensure it ends with a period
+    if (explanation && !explanation.match(/[.!?]$/)) {
+      explanation += '.';
+    }
+    
+    console.log('🎯 Cleaned explanation:', explanation);
+    console.log('📏 Explanation length:', explanation?.length || 0);
+    
+    // Quality check
+    if (explanation.length > 50 && explanation.length < 400) {
+      return explanation;
+    } else {
+      console.log(`❌ Explanation failed quality check (length: ${explanation.length})`);
+      return null;
+    }
+  }
+
+  // ✅ IMPROVED: Better fallback explanations for comparison
+  getDetailedFallbackExplanation(category) {
+    const detailedExplanations = {
+      'Account Security': 'Strong account security prevents unauthorized access to your personal accounts and data. Two-factor authentication blocks 99% of automated attacks, even when passwords are compromised. Without proper account security, cybercriminals can easily steal your identity, access your finances, and use your accounts for further attacks.',
+      
+      'Device Security': 'Device security protects your computers and phones from malware and unauthorized access. Outdated devices with security holes are prime targets for cybercriminals who exploit known vulnerabilities. Keeping devices updated and protected prevents data theft, ransomware attacks, and unauthorized surveillance.',
+      
+      'Digital Awareness': 'Digital awareness helps you recognize and avoid sophisticated online scams and phishing attempts. Most cyber attacks succeed through social engineering rather than technical exploits. Understanding how attackers manipulate people significantly reduces your risk of falling victim to fraud and identity theft.',
+      
+      'Privacy Protection': 'Privacy protection controls how much personal information you share online and limits your digital footprint. Excessive data sharing creates detailed profiles that criminals use for targeted scams and identity theft. Protecting your privacy reduces the information available for malicious use.',
+      
+      'Data Protection': 'Data protection ensures your important files and memories are safe from loss, theft, or ransomware. Without proper backups, a single device failure or cyber attack could permanently destroy years of irreplaceable data. Regular backups and encryption provide multiple layers of protection.',
+      
+      'Mobile & Smart Home': 'Mobile and smart device security prevents these connected devices from becoming entry points for larger attacks. Unsecured devices can be hijacked to spy on your activities, steal personal information, or attack other devices on your network. Proper security isolates and protects your entire digital ecosystem.',
+      
+      'Personal Data Management': 'Personal data management helps you track where your information appears online and respond quickly to security breaches. With frequent data breaches, knowing when your information is exposed allows you to take protective action before criminals exploit it for fraud or identity theft.'
+    };
+    
+    return detailedExplanations[category] || 'This security practice helps protect you from common cyber threats that could compromise your personal information and digital safety.';
+  }
+
+  // ... [Rest of the existing methods: generatePersonalizedAdvice, analyzeRiskPatterns, etc.]
+  
   async generatePersonalizedAdvice(userProfile, weakAreas, answers) {
     console.log('🤖 Generating DETAILED AI advice...', { 
       isEnabled: this.isEnabled(), 
@@ -202,7 +364,6 @@ class AIService {
 
     if (this.isEnabled()) {
       try {
-        // ✅ IMPROVED: More detailed prompt for comprehensive advice
         const prompt = `You are a cybersecurity expert. A ${userProfile.role || 'professional'} working in ${userProfile.industry || 'technology'} needs specific security improvements in these areas: ${weakAreas.join(', ')}.
 
 Provide 3 detailed, actionable recommendations. For each recommendation:
@@ -214,13 +375,13 @@ Provide 3 detailed, actionable recommendations. For each recommendation:
 Be practical, specific, and comprehensive. Each recommendation should be 2-3 sentences with clear implementation guidance.`;
         
         const result = await this.callAI(
-          'longText', // Use models better for longer responses
+          'longText',
           prompt, 
           {
-            max_length: 400,  // ✅ INCREASED: Allow longer responses
-            temperature: 0.6, // ✅ OPTIMIZED: More focused but creative
+            max_length: 400,
+            temperature: 0.6,
             do_sample: true,
-            top_p: 0.9       // ✅ ADDED: Better quality control
+            top_p: 0.9
           }
         );
 
@@ -232,90 +393,19 @@ Be practical, specific, and comprehensive. Each recommendation should be 2-3 sen
         
       } catch (error) {
         console.error('💥 Detailed AI advice generation failed:', error);
-        
-        // Try fallback with simpler model
-        if (this.useProxy && this.apiKey && error.message.includes('AI_FALLBACK_NEEDED')) {
-          console.log('🔄 Trying direct AI call as fallback...');
-          try {
-            const simplePrompt = `Cybersecurity advice for ${weakAreas.join(', ')}: provide 3 detailed recommendations with implementation steps.`;
-            const result = await this.callAIDirect(
-              this.models.textGeneration, 
-              simplePrompt, 
-              { max_length: 300, temperature: 0.7 }
-            );
-            const parsedAdvice = this.parseDetailedAIAdvice(result);
-            return parsedAdvice.map(advice => `🤖 AI (Direct): ${advice}`);
-          } catch (directError) {
-            console.error('💥 Direct AI call also failed:', directError);
-          }
-        }
       }
     }
     
-    // Fallback to enhanced detailed expert advice
     console.log('📋 Using DETAILED expert fallback advice');
     const detailedFallbackAdvice = this.getDetailedFallbackAdvice(weakAreas);
     return detailedFallbackAdvice.map(advice => `📋 Expert: ${advice}`);
   }
 
-  // ✅ ENHANCED: Better AI question explanations
-  async generateQuestionExplanation(question) {
-    console.log('🤖 Generating AI explanation for question...', { category: question.category });
-    
-    if (this.isEnabled()) {
-      try {
-        // ✅ IMPROVED: More specific prompt for better explanations
-        const prompt = `Explain why this cybersecurity question is important for personal security: "${question.question}"
-
-Provide a clear, practical explanation that:
-1. Explains the security risk being assessed
-2. Gives real-world examples of what could happen
-3. Is easy to understand for non-technical people
-4. Is 2-3 sentences long
-
-Focus on practical impact and real threats.`;
-        
-        const result = await this.callAI(
-          'longText',
-          prompt,
-          { 
-            max_length: 200, 
-            temperature: 0.5,  // More focused for explanations
-            top_p: 0.8
-          }
-        );
-
-        console.log('✅ AI explanation generated successfully');
-        console.log('🔍 Raw AI explanation:', result);
-        
-        const explanation = this.parseAIExplanation(result);
-        if (explanation && explanation.length > 30) {
-          console.log('🤖 Using LIVE AI explanation');
-          return `🤖 AI: ${explanation}`;
-        } else {
-          console.log('📋 AI response too short, using fallback');
-          throw new Error('AI response insufficient');
-        }
-        
-      } catch (error) {
-        console.warn('💥 AI explanation failed, using expert fallback:', error.message);
-      }
-    } else {
-      console.log('📋 AI not enabled, using expert explanation');
-    }
-    
-    // Use detailed expert explanation
-    const expertExplanation = this.getDetailedFallbackExplanation(question.category);
-    return `📋 Expert: ${expertExplanation}`;
-  }
-
-  // ✅ ENHANCED: Better parsing for detailed responses
   parseDetailedAIAdvice(result) {
     if (!result) return this.getDetailedFallbackAdvice(['General Security']);
     
     let text = '';
     
-    // Handle various response formats
     if (Array.isArray(result)) {
       if (result[0]?.generated_text) {
         text = result[0].generated_text;
@@ -337,11 +427,8 @@ Focus on practical impact and real threats.`;
     
     console.log('🔍 Processing AI response of length:', text.length);
     
-    // ✅ IMPROVED: Better parsing for detailed recommendations
-    // Try to split into numbered recommendations first
     let recommendations = [];
     
-    // Method 1: Look for numbered points (1. 2. 3.)
     const numberedPattern = /(?:^|\n)\s*\d+\.\s*([^0-9\n]+(?:\n(?!\s*\d+\.)[^\n]*)*)/g;
     let match;
     while ((match = numberedPattern.exec(text)) !== null && recommendations.length < 3) {
@@ -351,7 +438,6 @@ Focus on practical impact and real threats.`;
       }
     }
     
-    // Method 2: Split by sentences if numbered approach didn't work
     if (recommendations.length === 0) {
       const sentences = text
         .split(/[.!?]+/)
@@ -361,7 +447,6 @@ Focus on practical impact and real threats.`;
       recommendations = sentences.slice(0, 3);
     }
     
-    // Method 3: Split by paragraphs/line breaks
     if (recommendations.length === 0) {
       const paragraphs = text
         .split(/\n\s*\n|\n-|\n•/)
@@ -371,7 +456,6 @@ Focus on practical impact and real threats.`;
       recommendations = paragraphs.slice(0, 3);
     }
     
-    // Ensure we have at least some recommendations
     if (recommendations.length === 0) {
       console.log('📋 Could not parse AI response, using fallbacks');
       return this.getDetailedFallbackAdvice(['General Security']);
@@ -381,69 +465,22 @@ Focus on practical impact and real threats.`;
     return recommendations;
   }
 
-  // ✅ ENHANCED: Better explanation parsing
-  parseAIExplanation(result) {
-    if (!result) return null;
-    
-    let text = '';
-    if (Array.isArray(result) && result[0]?.generated_text) {
-      text = result[0].generated_text;
-    } else if (result.generated_text) {
-      text = result.generated_text;
-    } else if (typeof result === 'string') {
-      text = result;
-    }
-    
-    if (!text) return null;
-    
-    // Clean up the explanation - remove the prompt echo
-    text = text.replace(/^.*?(?:Explain why|explanation|important).*?:/i, '').trim();
-    text = text.replace(/^.*?(?:provides?|gives?|explains?).*?:/i, '').trim();
-    
-    // Get the first clear explanation
-    const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 20);
-    const explanation = sentences.slice(0, 2).join('. ').trim();
-    
-    return explanation.length > 30 && explanation.length < 300 ? explanation : null;
-  }
-
-  // ✅ ENHANCED: More detailed fallback advice
   getDetailedFallbackAdvice(weakAreas) {
     const detailedAdviceMap = {
       'Account Security': [
-        'Enable two-factor authentication (2FA) on all critical accounts immediately. This adds a second layer of security that prevents 99% of account takeovers, even if your password is compromised. Start with email, banking, and work accounts, then expand to social media and shopping sites. Use authenticator apps like Google Authenticator or Authy instead of SMS when possible, as they\'re more secure.',
-        'Implement a password manager to generate and store unique passwords for every account. Password reuse is one of the biggest security risks - if one site is breached, all your accounts become vulnerable. Popular options include Bitwarden (free), 1Password, or Dashlane. Set aside 2 hours to import existing passwords and generate new ones for your most important accounts.',
-        'Conduct quarterly security audits of your accounts and app permissions. Review connected apps, revoke access to services you no longer use, and check for suspicious login activity. Set a calendar reminder every 3 months. This reduces your attack surface and helps you spot unauthorized access early.'
+        'Enable two-factor authentication (2FA) on all critical accounts immediately. This adds a second layer of security that prevents 99% of account takeovers, even if your password is compromised. Start with email, banking, and work accounts, then expand to social media and shopping sites.',
+        'Implement a password manager to generate and store unique passwords for every account. Password reuse is one of the biggest security risks - if one site is breached, all your accounts become vulnerable. Set aside 2 hours to import existing passwords and generate new ones.',
+        'Conduct quarterly security audits of your accounts and app permissions. Review connected apps, revoke access to services you no longer use, and check for suspicious login activity. This reduces your attack surface and helps spot unauthorized access early.'
       ],
       'Device Security': [
-        'Enable automatic security updates on all your devices to patch vulnerabilities as soon as fixes are available. Go to Settings → Software Update on mobile devices and Settings → Windows Update or System Preferences → Software Update on computers. Cybercriminals actively exploit known vulnerabilities, so staying current is critical.',
-        'Install comprehensive security software on all devices, including smartphones and tablets. Modern threats target all platforms, not just computers. Look for solutions that include real-time protection, web filtering, and anti-phishing. Many devices have built-in protection (Windows Defender, iOS security), but additional layers help.',
-        'Use a VPN (Virtual Private Network) whenever connecting to public Wi-Fi networks. Public networks in cafes, airports, and hotels are often unsecured, allowing others to intercept your data. Quality VPN services include NordVPN, ExpressVPN, or ProtonVPN. Always verify you\'re connecting to legitimate networks, not malicious hotspots with similar names.'
+        'Enable automatic security updates on all your devices to patch vulnerabilities as soon as fixes are available. Cybercriminals actively exploit known vulnerabilities, so staying current is critical for preventing successful attacks.',
+        'Install comprehensive security software on all devices, including smartphones and tablets. Modern threats target all platforms, not just computers. Quality security solutions provide real-time protection against malware and suspicious activities.',
+        'Use a VPN when connecting to public Wi-Fi networks in cafes, airports, and hotels. Public networks are often unsecured, allowing others to intercept your data and monitor your online activities.'
       ],
       'Digital Awareness': [
-        'Take comprehensive phishing awareness training to recognize sophisticated email and message scams. Modern phishing attempts are highly convincing and target specific individuals with personalized information. Learn to identify warning signs: urgent language, requests for sensitive information, suspicious sender addresses, and unexpected attachments. Practice with simulation tools to build recognition skills.',
-        'Develop a verification protocol for unexpected communications claiming to be from trusted organizations. Never click links or provide information from unsolicited messages. Instead, independently contact the organization using official contact information from their website. This prevents falling victim to increasingly sophisticated social engineering attacks.',
-        'Stay informed about current cybersecurity threats through reputable sources like KrebsOnSecurity, CISA alerts, or your organization\'s security team. Cyber threats evolve rapidly, and awareness of current attack methods helps you recognize and avoid new scams. Spend 10 minutes weekly reading security news.'
-      ],
-      'Privacy Protection': [
-        'Comprehensively review and strengthen privacy settings across all social media platforms and online accounts. Default settings typically maximize data sharing for advertising purposes. Limit who can see your posts, contact you, and find you through search. Review these settings monthly, as platforms frequently change their privacy policies and reset user preferences.',
-        'Audit app permissions on all devices and revoke unnecessary access to sensitive data like location, contacts, camera, and microphone. Many apps request far more permissions than needed for their core functionality. Review permissions monthly and apply the principle of least privilege - only grant access that\'s absolutely necessary.',
-        'Implement privacy-focused browsing habits using tools like Firefox with strict privacy settings, privacy-focused search engines (DuckDuckGo), and ad blockers. Consider using private/incognito browsing for sensitive activities. Regularly clear cookies and browsing data to prevent extensive tracking profiles.'
-      ],
-      'Data Protection': [
-        'Establish a comprehensive backup strategy using the 3-2-1 rule: 3 copies of important data, on 2 different types of media, with 1 copy stored offsite. Set up automated cloud backups for daily files and monthly physical backups for critical documents. Test your backup recovery process quarterly to ensure it works when needed.',
-        'Encrypt sensitive files before storing or sharing them, especially in cloud storage. Use built-in encryption tools (BitLocker on Windows, FileVault on Mac) or dedicated software like AxCrypt. This ensures your data remains protected even if storage providers are breached or devices are stolen.',
-        'Implement a systematic data retention policy to regularly delete old files containing personal information you no longer need. The less data you store, the less can be stolen or compromised. Schedule monthly cleanups of downloads, old emails, and temporary files. Securely wipe deleted sensitive data using specialized tools.'
-      ],
-      'Mobile & Smart Home': [
-        'Secure mobile devices with multiple layers of protection: strong passcodes (at least 6 digits), biometric locks (fingerprint/face), and automatic locking after short idle periods. Enable remote wipe capabilities in case of theft. Your phone contains access to most of your digital life, making it a prime target for attackers.',
-        'Change default passwords on all smart home devices and enable automatic firmware updates. Default credentials are publicly known and easily exploited. Create a separate guest network for IoT devices to isolate them from computers and phones. Regularly review connected device lists and remove unused items.',
-        'Carefully manage location tracking permissions and regularly review which apps can access your location data. Constant location tracking creates detailed profiles of your movements and habits. Set apps to use location only while actively using them, not continuously in the background. Review and clear location history periodically.'
-      ],
-      'Personal Data Management': [
-        'Regularly monitor your accounts for data breaches using services like Have I Been Pwned, and set up notifications for future breaches. Data breaches are increasingly common, and early detection allows you to take protective action quickly. Check quarterly and immediately change passwords for any compromised accounts.',
-        'Establish a firm policy of never sharing verification codes, passwords, or security questions with anyone, regardless of who they claim to be. Legitimate organizations will never ask for this information. Scammers often pose as support staff or create urgent scenarios to pressure victims into sharing credentials.',
-        'Create and practice an incident response plan for account compromises or identity theft. Know the steps to take: change passwords, contact financial institutions, file reports with relevant authorities, and monitor accounts closely. Having a plan reduces panic and ensures you take all necessary protective actions quickly.'
+        'Take comprehensive phishing awareness training to recognize sophisticated email and message scams. Modern phishing attempts are highly convincing and use personalized information to appear legitimate. Learning warning signs significantly reduces your risk.',
+        'Develop a verification protocol for unexpected communications claiming to be from trusted organizations. Never click links or provide information from unsolicited messages - instead, contact organizations directly using official contact information.',
+        'Stay informed about current cybersecurity threats through reputable sources. Cyber threats evolve rapidly, and awareness of current attack methods helps you recognize and avoid new scams targeting people like you.'
       ]
     };
 
@@ -457,22 +494,6 @@ Focus on practical impact and real threats.`;
     return advice.slice(0, 3);
   }
 
-  // ✅ ENHANCED: More detailed fallback explanations
-  getDetailedFallbackExplanation(category) {
-    const detailedExplanations = {
-      'Account Security': 'Account security protects your digital identity from takeover attempts. Weak account security is the #1 way cybercriminals gain access to personal information, financial accounts, and sensitive data. Strong authentication methods like two-factor authentication prevent 99% of automated attacks, even when passwords are compromised through breaches.',
-      'Device Security': 'Device security protects your computers, phones, and tablets from malware, unauthorized access, and data theft. Unpatched devices are prime targets for cybercriminals who exploit known vulnerabilities. Regular updates, security software, and safe browsing habits create multiple defensive layers against sophisticated attacks.',
-      'Digital Awareness': 'Digital awareness helps you recognize and avoid online threats like phishing, social engineering, and scams. Most successful cyber attacks rely on human error rather than technical exploits. Understanding common attack methods and maintaining healthy skepticism about unexpected messages significantly reduces your risk of becoming a victim.',
-      'Privacy Protection': 'Privacy protection controls how much personal information you share online and who has access to it. Excessive data sharing creates detailed profiles that can be used for identity theft, targeted scams, or unauthorized surveillance. Limiting information exposure reduces your attack surface and protects your personal privacy.',
-      'Data Protection': 'Data protection ensures your important files, photos, and documents are backed up and secure against loss or theft. Without proper backups, ransomware attacks, device failures, or theft could permanently destroy years of irreplaceable data. Encryption adds an additional layer of protection for sensitive information.',
-      'Mobile & Smart Home': 'Mobile and smart home security protects your connected devices from being compromised and used as entry points to your personal network. These devices often have weaker security and can be exploited to access other systems, spy on activities, or steal personal information stored on connected networks.',
-      'Personal Data Management': 'Personal data management helps you track and control where your information appears online and respond quickly to security incidents. With frequent data breaches and identity theft, knowing when your information is exposed allows you to take protective action before criminals can exploit it.'
-    };
-    
-    return detailedExplanations[category] || 'This question assesses important cybersecurity practices that help protect your digital life from various threats including identity theft, financial fraud, and privacy violations.';
-  }
-
-  // Include other existing methods...
   async analyzeRiskPatterns(answers, questions) {
     const riskPatterns = [];
     let criticalRisks = 0;
@@ -538,7 +559,7 @@ Focus on practical impact and real threats.`;
   }
 
   async testAIConnection() {
-    console.log('🧪 Testing AI connection with working models...');
+    console.log('🧪 Testing AI connection with explanation models...');
     
     const testResults = {
       proxy: { success: false, message: '', time: 0, model: '' },
@@ -548,12 +569,13 @@ Focus on practical impact and real threats.`;
     if (this.useProxy) {
       const startTime = Date.now();
       try {
-        await this.callAI('textGeneration', 'Test connection', { max_length: 50 });
+        // Test with explanation model
+        await this.callAI('explanation', 'Test explanation generation', { max_length: 50 });
         testResults.proxy = {
           success: true,
-          message: '✅ Proxy connection working',
+          message: '✅ Proxy connection working (explanation model tested)',
           time: Date.now() - startTime,
-          model: this.models.textGeneration
+          model: this.models.explanation
         };
       } catch (error) {
         testResults.proxy = {
@@ -568,12 +590,12 @@ Focus on practical impact and real threats.`;
     if (this.apiKey) {
       const startTime = Date.now();
       try {
-        await this.callAI('textGeneration', 'Test connection', { max_length: 50 });
+        await this.callAI('explanation', 'Test explanation generation', { max_length: 50 });
         testResults.direct = {
           success: true,
-          message: '✅ Direct connection working',
+          message: '✅ Direct connection working (explanation model tested)',
           time: Date.now() - startTime,
-          model: this.models.textGeneration
+          model: this.models.explanation
         };
       } catch (error) {
         testResults.direct = {
