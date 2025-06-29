@@ -33,15 +33,21 @@ const nextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com",
+              // ✅ FIXED: More permissive script-src for AI models
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net blob:",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "img-src 'self' data: https: blob:",
               "font-src 'self' data: https://fonts.gstatic.com",
-              "connect-src 'self' https: wss: https://api-inference.huggingface.co https://huggingface.co",
-              "worker-src 'self' blob:",
-              "child-src 'self' blob:",
+              // ✅ FIXED: More permissive connect-src for AI APIs
+              "connect-src 'self' https: wss: data: blob: https://api-inference.huggingface.co https://huggingface.co",
+              "worker-src 'self' blob: data:",
+              "child-src 'self' blob: data:",
               "frame-src 'self' https:",
               "media-src 'self' data: blob:",
+              // ✅ ADDED: Allow object-src for AI models
+              "object-src 'none'",
+              // ✅ ADDED: Allow unsafe-eval for AI processing
+              "script-src-elem 'self' 'unsafe-inline' https://cdnjs.cloudflare.com",
             ].join('; '),
           },
         ],
